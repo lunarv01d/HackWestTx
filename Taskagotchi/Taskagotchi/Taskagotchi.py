@@ -20,24 +20,25 @@ def userInput():
 
 
 def check_CPUusage(CPUL):
-    return psutil.cpu_percent(CPUL)
-
+    return (psutil.cpu_percent(CPUL))
 
 def check_MemoryUsage():
     return psutil.virtual_memory().used / 1000000000  # bytes to Gigabytes
 
+def check_MemoryRatio():
+    return psutil.virtual_memory().used / psutil.virtual_memory().total  # Ratio of used to total
 
 def check_DiskUsage():
     return psutil.disk_usage('/').used / 1000000000  # bytes to Gigabytes
 
+def check_DiskRatio():
+    return psutil.disk_usage('/').used / psutil.disk_usage('/').total  # Ratio of used to total
 
 def check_BatteryPercent():
     return psutil.sensors_battery().percent
 
-
 def check_PluggedIn():
     return psutil.sensors_battery().power_plugged
-
 
 def check_MainFunc():
     CpuUse = check_CPUusage(CPUCheckLength)
