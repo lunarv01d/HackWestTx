@@ -1,14 +1,21 @@
 import psutil
 import time
 
-CPUCheckLength = 0
-CPUCheckLength = int(input("How long should each CPU check be: "))
-CPUCheckInterval = 0
-CheckInterval = int(input("How often should it check: "))
-Monitoring = True
+if __name__ == "__main__":
+    main()
 
-if(CPUCheckLength > CheckInterval):
-    CPUCheckLength = CheckInterval
+CPUCheckLength = 0
+CheckInterval = 0
+Monitoring = False
+
+def userInput():
+    CPUCheckLength = int(input("How long should each CPU check be: "))
+    CheckInterval = int(input("How often should it check: "))
+    Monitoring = bool(input("Do you want to monitor your CPU usage? (True for Yes, False for No): "))
+    if(CPUCheckLength > CheckInterval):
+        CPUCheckLength = CheckInterval
+
+
 
 def check_CPUusage(CPUL):
     return (psutil.cpu_percent(CPUL))
@@ -37,9 +44,5 @@ def check_MainFunc():
     PlugIn = check_PluggedIn()
     print(PlugIn)
 
-while (Monitoring == True):
-    time.sleep(CheckInterval)
-    check_MainFunc()
 
-if _name_ == "_main_":
-    main()
+
