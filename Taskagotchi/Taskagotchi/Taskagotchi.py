@@ -38,7 +38,12 @@ def check_BatteryPercent():
     return psutil.sensors_battery().percent
 
 def check_PluggedIn():
-    return psutil.sensors_battery().power_plugged
+    battery = psutil.sensors_battery()
+
+    if battery is None:
+        return True
+
+    return battery.power_plugged
 
 def check_MainFunc():
     CpuUse = check_CPUusage(CPUCheckLength)
