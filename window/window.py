@@ -1,55 +1,122 @@
-from tkinter import *
 import sys
+from pathlib import Path
 
-window_width = 200
-window_height = 200
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPainter, QPixmap
+from PySide6.QtWidgets import QApplication, QWidget
 
-root = Tk()
 
-root.title("Taskagotchi")
-root.geometry(f"{window_width}x{window_height}+0+0")
-root.wm_attributes("-topmost", True)
-root.overrideredirect(True)
+class TaskagotchiWindow(QWidget):
+    def __init__(self):
+        super().__init__()
 
-img = PhotoImage(file="window/assets/Pot.png")
+        # Window settings:
+        # - No title bar / border
+        # - Stay above other windows
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+        )
 
-if sys.platform == "darwin":
-    # macOS
-    root.config(bg="systemTransparent")
-    root.wm_attributes("-transparent", True)
+        # Allow actual per-pixel transparency
+        self.setAttribute(
+            Qt.WidgetAttribute.WA_TranslucentBackground,
+            True
+        )
 
-    image_label = Label(
-        root,
-        image=img,
-        bg="systemTransparent",
-        borderwidth=0,
-        highlightthickness=0
-    )
+        # Load image relative to THIS Python file
+        image_path = (
+            Path(__file__).resolve().parent
+            / "assets"
+            / "Pot.png"
+        )
 
-elif sys.platform == "win32":
-    # Windows
-    transparent_color = "#ff00ff"
+        self.pet_image = QPixmap(str(image_path))
 
-    root.config(bg=transparent_color)
-    root.wm_attributes("-transparentcolor", transparent_color)
+        if self.pet_image.isNull():
+            raise FileNotFoundError(
+                f"Could not load Taskagotchi image: {image_path}"
+            )
 
-    image_label = Label(
-        root,
-        image=img,
-        bg=transparent_color,
-        borderwidth=0,
-        highlightthickness=0
-    )
+        # Make the window exactly the size of the PNG
+        self.setFixedSize(self.pet_image.size())
 
-else:
-    # Linux fallback
-    image_label = Label(
-        root,
-        image=img,
-        borderwidth=0,
-        highlightthickness=0
-    )
+        # Used while dragging the pet
+        self.drag_offset = None
 
-image_label.pack()
+        # Start near the bottom-right of the usable screen
+        screen = QApplication.primaryScreen().availableGeometry()
 
-root.mainloop()
+        x = screen.right() - self.width() - 20
+        y = screen.bottom() - self.height() - 20
+
+        self.move(x, y)
+
+    def paintEvent(self, event):
+        """
+        Draw the PNG directly onto the transparent window.
+        Transparent pixels in the PNG remain transparent.
+        """
+        painter = QPainter(self)
+        painter.drawPixmap(0, 0, self.pet_image)
+
+    def mousePressEvent(self, event):
+        """
+        Start dragging when the left mouse button is pressed.
+        """
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.drag_offset = (
+                event.globalPosition().toPoint()
+                - self.frameGeometry().topLeft()
+            )
+
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        """
+        Move the Taskagotchi while the left mouse button is held.
+        """
+        if (
+            event.buttons() & Qt.MouseButton.LeftButton
+            and self.drag_offset is not None
+        ):
+            new_position = (
+                event.globalPosition().toPoint()
+                - self.drag_offset
+            )
+
+            self.move(new_position)
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        """
+        Stop dragging when the mouse button is released.
+        """
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.drag_offset = None
+            event.accept()
+
+    def keyPressEvent(self, event):
+        """
+        Escape closes the window during development.
+        """
+        if event.key() == Qt.Key.Key_Escape:
+            self.close()
+        else:
+            super().keyPressEvent(event)
+
+
+def main():
+    app = QApplication(sys.argv)
+
+    app.setApplicationName("Taskagotchi")
+
+    window = TaskagotchiWindow()
+    window.show()
+    window.raise_()
+
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
