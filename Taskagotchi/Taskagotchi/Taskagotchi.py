@@ -19,13 +19,23 @@ def check_MemoryUsage():
 def check_DiskUsage():
     return ((psutil.disk_usage('/').used / 1000000000)) #bytes to Gigabytes
 
+def check_BatteryPercent():
+    return (psutil.sensors_battery().percent)
+
+def check_PluggedIn():
+    return (psutil.sensors_battery().power_plugged)
+
 def check_MainFunc():
     CpuUse = check_CPUusage(CPUCheckLength)
-    print(CpuUse, " CPU")
+    print(CpuUse, "% CPU")
     MemUse = check_MemoryUsage()
-    print(MemUse, " Memory")
+    print(MemUse, "GB of Memory in use")
     DiskUse = check_DiskUsage()
-    print(DiskUse, " Disk")
+    print(DiskUse, "GB of Disk in use")
+    BatPer = check_BatteryPercent()
+    print("Battery at", BatPer, "%")
+    PlugIn = check_PluggedIn()
+    print(PlugIn)
 
 while (Monitoring == True):
     time.sleep(CheckInterval)
