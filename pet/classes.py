@@ -2,12 +2,11 @@ class pet:
     def __init__(self, name, species, age):
         self.name = name
         self.species = species
-    
         self.age = age
         self.height = 1
         self.hunger = 50
         self.energy = 100
-        self.pods = 0
+        self.pods = 0 #max 5
 
     def get_info(self):
         return f"{self.name} is a {self.age}-year-old {self.species}."
