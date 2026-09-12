@@ -2,6 +2,7 @@ class pet:
     def __init__(self, name, species, age):
         self.name = name
         self.species = species
+    
         self.age = age
         self.height = 1
         self.hunger = 50
