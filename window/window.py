@@ -11,10 +11,12 @@ root = Tk()
 img = PhotoImage(file="window/assets/Pot.png")
 root.title("Taskagochi")
 root.geometry(f"{window_width}x{window_height}+0-0")
+root.wm_attributes("-topmost", True)
+root.wm_attributes("-alpha", 0.5)
 image_label = Label(root, image=img)
 image_label.pack()
-root.overrideredirect(1)
-
+root.config(bg='')
+root.wm_attributes("-transparent", True)
 
 
 root.mainloop()
