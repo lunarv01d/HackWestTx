@@ -1,24 +1,22 @@
 import psutil
 import time
 
-cpuLen= 0
-cpuLen= input("How long should each check be: ")
-cpuInt = 0
-cpuInt = input("How often should it check: ")
-Monitoring = true
+CPUCheckLength = 0
+CPUCheckLength = int(input("How long should each check be: "))
+CPUCheckInterval = 0
+CheckInterval = int(input("How often should it check: "))
+Monitoring = True
 
-if(cpuLen > cpuInt):
-    cpuLen = cpuInt
+if(CPUCheckLength > CheckInterval):
+    CPUCheckLength = CheckInterval
 
-
-def check_CPUusage(CPUL)
+def check_CPUusage(CPUL):
     return (psutil.cpu_percent(CPUL))
 
-def check_MainFunc()
-    CpuUse = check_CPUusage(cpuLen)
+def check_MainFunc():
+    CpuUse = check_CPUusage(CPUCheckLength)
     print(CpuUse)
-    
-while (Monitoring == true):
-    time.sleep(cpuInt)
-    check_MainFunc()
 
+while (Monitoring == True):
+    time.sleep(CheckInterval)
+    check_MainFunc()
