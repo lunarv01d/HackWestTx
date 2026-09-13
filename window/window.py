@@ -81,7 +81,7 @@ if str(ROOT) not in sys.path:
 # ---------------------------------------------------------
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QPainter, QPixmap
+from PySide6.QtGui import QMovie, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QWidget
 
 import Taskagotchi.Taskagotchi.Taskagotchi as task
@@ -95,6 +95,22 @@ class TaskagotchiWindow(QWidget):
 
     def __init__(self):
         super().__init__()
+
+        # -------------------------------------------------
+        # Easy-to-adjust drawing positions
+        # -------------------------------------------------
+
+        self.pet_x = -50
+        self.pet_y = 0
+
+        self.tree_x = -50
+        self.tree_y = 0
+
+        self.sun_x = 45
+        self.sun_y = 10
+
+        self.fire_x = -50
+        self.fire_y = 0
 
         # Frameless and always on top
         self.setWindowFlags(
@@ -116,6 +132,7 @@ class TaskagotchiWindow(QWidget):
 
         image_path = assets_path / "Pot.png"
         sun_path = assets_path / "Sun.png"
+        fire_path = assets_path / "Fire.gif"
 
         self.pet_image = QPixmap(str(image_path))
         self.sun_image = QPixmap(str(sun_path))
@@ -131,6 +148,43 @@ class TaskagotchiWindow(QWidget):
             )
 
         # -------------------------------------------------
+        # Load tree images
+        # -------------------------------------------------
+
+        self.tree_images = {}
+
+        for stage in range(1, 6):
+            for condition in ("Good", "Mid", "Bad"):
+                tree_path = (
+                    assets_path
+                    / f"TreeStg{stage}{condition}.png"
+                )
+
+                tree_image = QPixmap(str(tree_path))
+
+                if tree_image.isNull():
+                    raise FileNotFoundError(
+                        f"Could not load tree image: {tree_path}"
+                    )
+
+                self.tree_images[(stage, condition)] = tree_image
+
+        # -------------------------------------------------
+        # Load animated fire GIF
+        # -------------------------------------------------
+
+        self.fire_movie = QMovie(str(fire_path))
+
+        if not self.fire_movie.isValid():
+            raise FileNotFoundError(
+                f"Could not load fire animation: {fire_path}"
+            )
+
+        # Repaint whenever the GIF moves to another frame.
+        self.fire_movie.frameChanged.connect(self.update)
+        self.fire_movie.start()
+
+        # -------------------------------------------------
         # System state
         # -------------------------------------------------
 
@@ -142,10 +196,10 @@ class TaskagotchiWindow(QWidget):
         self.system_timer = QTimer(self)
         self.system_timer.timeout.connect(self.update_system_state)
 
-        # Update every 2 seconds
+        # Update every 2 seconds.
         self.system_timer.start(2000)
 
-        # Get values immediately on startup
+        # Get values immediately on startup.
         self.update_system_state()
 
         # -------------------------------------------------
@@ -154,10 +208,10 @@ class TaskagotchiWindow(QWidget):
 
         self.setFixedSize(self.pet_image.size())
 
-        # Used for dragging
+        # Used for dragging.
         self.drag_offset = None
 
-        # Start near bottom-right corner
+        # Start near bottom-right corner.
         screen = QApplication.primaryScreen().availableGeometry()
 
         x = screen.right() - self.width() - 20
@@ -172,11 +226,63 @@ class TaskagotchiWindow(QWidget):
     def update_system_state(self):
         self.plugged_in = task.check_PluggedIn()
         self.cpu_percent = task.check_CPUusage(task.CPUCheckLength)
-        self.LeafPercent = task.check_MemoryRatio()
-        self.TreePercent = task.check_DiskRatio()
+        self.LeafPercent = 100 - task.check_MemoryRatio()
+        self.TreePercent = 100 - task.check_DiskRatio()
 
-        # Repaint window with new values
+        # Repaint the window with the new values.
         self.update()
+
+    # -----------------------------------------------------
+    # Tree / leaf selection
+    # -----------------------------------------------------
+
+    def get_tree_stage(self):
+        """
+        Disk usage controls the tree growth stage.
+        """
+        if self.TreePercent > 80:
+            return 5
+        elif self.TreePercent > 60:
+            return 4
+        elif self.TreePercent > 40:
+            return 3
+        elif self.TreePercent > 20:
+            return 2
+        else:
+            return 1
+
+    def get_leaf_condition(self):
+        """
+        RAM usage controls the leaf condition.
+
+        Current behavior:
+            > 70% RAM  -> Good
+            35-70% RAM -> Mid
+            <= 35% RAM -> Bad
+
+        Reverse these if high RAM usage is supposed to hurt the tree.
+        """
+        if self.LeafPercent > 70:
+            return "Good"
+        elif self.LeafPercent > 35:
+            return "Mid"
+        else:
+            return "Bad"
+
+    def get_tree_image(self):
+        stage = self.get_tree_stage()
+        condition = self.get_leaf_condition()
+
+        return self.tree_images[(stage, condition)]
+
+    def is_on_fire(self):
+        """
+        Show Fire.gif whenever RAM or disk use exceeds 95%.
+        """
+        return (
+            self.LeafPercent > 95
+            or self.TreePercent > 95
+        )
 
     # -----------------------------------------------------
     # Draw images and text
@@ -185,108 +291,40 @@ class TaskagotchiWindow(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
 
-        # Always draw pet
+        # Draw the selected tree.
+        tree_image = self.get_tree_image()
+
         painter.drawPixmap(
-            -50,  # x
-            0,    # y
+            self.tree_x,
+            self.tree_y,
+            tree_image,
+        )
+
+        # Draw the pot.
+        painter.drawPixmap(
+            self.pet_x,
+            self.pet_y,
             self.pet_image,
         )
 
-        # Draw sun when plugged in
+        # Draw the sun only while plugged in.
         if self.plugged_in:
             painter.drawPixmap(
-                45,  # x
-                10,  # y
+                self.sun_x,
+                self.sun_y,
                 self.sun_image,
             )
 
-        # -------------------------------------------------
-        # Tree / Leaf Logic
-        # -------------------------------------------------
+        # Draw animated fire if RAM or disk is above 95%.
+        if self.is_on_fire():
+            fire_frame = self.fire_movie.currentPixmap()
 
-        if self.TreePercent > 95:
-
-            if self.LeafPercent > 95:
-                print("LeafF")
-
-            elif self.LeafPercent > 70:
-                print("LeafF")
-
-            elif self.LeafPercent > 35:
-                print("LeafH")
-
-            else:
-                print("LeafN")
-
-        elif self.TreePercent > 80:
-
-            if self.LeafPercent > 95:
-                print("LeafF")
-
-            elif self.LeafPercent > 70:
-                print("LeafF")
-
-            elif self.LeafPercent > 35:
-                print("LeafH")
-
-            else:
-                print("LeafN")
-
-        elif self.TreePercent > 60:
-
-            if self.LeafPercent > 95:
-                print("LeafF")
-
-            elif self.LeafPercent > 70:
-                print("LeafF")
-
-            elif self.LeafPercent > 35:
-                print("LeafH")
-
-            else:
-                print("LeafN")
-
-        elif self.TreePercent > 40:
-
-            if self.LeafPercent > 95:
-                print("LeafF")
-
-            elif self.LeafPercent > 70:
-                print("LeafF")
-
-            elif self.LeafPercent > 35:
-                print("LeafH")
-
-            else:
-                print("LeafN")
-
-        elif self.TreePercent > 20:
-
-            if self.LeafPercent > 95:
-                print("LeafF")
-
-            elif self.LeafPercent > 70:
-                print("LeafF")
-
-            elif self.LeafPercent > 35:
-                print("LeafH")
-
-            else:
-                print("LeafN")
-
-        else:
-
-            if self.LeafPercent > 95:
-                print("LeafF")
-
-            elif self.LeafPercent > 70:
-                print("LeafF")
-
-            elif self.LeafPercent > 35:
-                print("LeafH")
-
-            else:
-                print("LeafN")
+            if not fire_frame.isNull():
+                painter.drawPixmap(
+                    self.fire_x,
+                    self.fire_y,
+                    fire_frame,
+                )
 
         # -------------------------------------------------
         # Add text
@@ -347,7 +385,7 @@ class TaskagotchiWindow(QWidget):
     # -----------------------------------------------------
 
     def keyPressEvent(self, event):
-        # Escape closes Taskagotchi while developing
+        # Escape closes Taskagotchi while developing.
         if event.key() == Qt.Key.Key_Escape:
             self.close()
 
