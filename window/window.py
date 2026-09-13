@@ -1,7 +1,10 @@
 import sys
 import subprocess
 import importlib.util
+import time
+from collections import deque
 from pathlib import Path
+from threading import Lock
 
 
 # ---------------------------------------------------------
@@ -12,6 +15,7 @@ def install_dependencies():
     required_packages = {
         "PySide6": "PySide6",
         "psutil": "psutil",
+        "pynput": "pynput",
     }
 
     missing_packages = []
@@ -79,11 +83,152 @@ if str(ROOT) not in sys.path:
 # Normal imports
 # ---------------------------------------------------------
 
+from pynput import mouse
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QMovie, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QWidget
 
 import Taskagotchi.Taskagotchi.Taskagotchi as task
+
+
+# ---------------------------------------------------------
+# Doom-scroll tracker
+# ---------------------------------------------------------
+
+class DoomTracker:
+    """
+    Tracks recent global scroll-wheel / trackpad scroll activity.
+
+    Tree health falls while the user is actively scrolling.
+    Tree health recovers while the user takes a break.
+
+    Duration controls tree stage.
+    Recent scroll intensity controls Good / Mid / Bad leaves.
+    """
+
+    def __init__(
+        self,
+        fire_seconds=1200,
+        recovery_multiplier=2.0,
+        activity_window=10,
+        min_scrolls=3,
+        mid_scrolls=8,
+        bad_scrolls=16,
+    ):
+        # 1200 seconds = 20 minutes of sustained scrolling
+        # before the tree reaches 0% health.
+        self.fire_seconds = fire_seconds
+
+        # 2.0 means the tree recovers twice as fast
+        # as it deteriorates.
+        self.recovery_multiplier = recovery_multiplier
+
+        # Number of recent seconds used to judge
+        # whether scrolling is active/intense.
+        self.activity_window = activity_window
+
+        # Thresholds for active scrolling and leaf quality.
+        self.min_scrolls = min_scrolls
+        self.mid_scrolls = mid_scrolls
+        self.bad_scrolls = bad_scrolls
+
+        self.doom_seconds = 0.0
+        self.scroll_events = deque()
+        self.last_update = time.monotonic()
+        self.lock = Lock()
+
+        # Global scroll listener.
+        # This listens only for scrolling, not keyboard input.
+        self.listener = mouse.Listener(
+            on_scroll=self._on_scroll
+        )
+
+        self.listener.start()
+
+    def _on_scroll(self, x, y, dx, dy):
+        now = time.monotonic()
+
+        with self.lock:
+            self.scroll_events.append(now)
+
+    def update(self):
+        now = time.monotonic()
+
+        with self.lock:
+            elapsed = now - self.last_update
+            self.last_update = now
+
+            cutoff = now - self.activity_window
+
+            # Forget old scroll events.
+            while (
+                self.scroll_events
+                and self.scroll_events[0] < cutoff
+            ):
+                self.scroll_events.popleft()
+
+            recent_scrolls = len(self.scroll_events)
+
+            is_scrolling = (
+                recent_scrolls >= self.min_scrolls
+            )
+
+            if is_scrolling:
+                # Doomscrolling makes the tree deteriorate.
+                self.doom_seconds += elapsed
+
+                self.doom_seconds = min(
+                    self.doom_seconds,
+                    self.fire_seconds,
+                )
+
+            else:
+                # Taking a break lets the tree recover.
+                self.doom_seconds -= (
+                    elapsed
+                    * self.recovery_multiplier
+                )
+
+                self.doom_seconds = max(
+                    0.0,
+                    self.doom_seconds,
+                )
+
+            # 100 = fully healthy
+            # 0   = completely cooked
+            tree_health = (
+                1.0
+                - (
+                    self.doom_seconds
+                    / self.fire_seconds
+                )
+            ) * 100.0
+
+            tree_health = max(
+                0.0,
+                min(100.0, tree_health),
+            )
+
+            # Scroll intensity drives leaf condition.
+            if recent_scrolls >= self.bad_scrolls:
+                leaf_condition = "Bad"
+
+            elif recent_scrolls >= self.mid_scrolls:
+                leaf_condition = "Mid"
+
+            else:
+                leaf_condition = "Good"
+
+            return (
+                tree_health,
+                self.doom_seconds,
+                is_scrolling,
+                recent_scrolls,
+                leaf_condition,
+            )
+
+    def stop(self):
+        self.listener.stop()
 
 
 # ---------------------------------------------------------
@@ -94,6 +239,23 @@ class TaskagotchiWindow(QWidget):
 
     def __init__(self):
         super().__init__()
+
+        # -------------------------------------------------
+        # Doom-scroll tuning
+        # -------------------------------------------------
+
+        # Production / demo default:
+        # 20 minutes of sustained scrolling = fire.
+        #
+        # For quick testing, temporarily change this to 60.
+        self.doom_tracker = DoomTracker(
+            fire_seconds=1200,
+            recovery_multiplier=2.0,
+            activity_window=10,
+            min_scrolls=3,
+            mid_scrolls=8,
+            bad_scrolls=16,
+        )
 
         # -------------------------------------------------
         # Easy-to-adjust drawing positions
@@ -201,15 +363,20 @@ class TaskagotchiWindow(QWidget):
 
         # RAM
         self.ram_used_percent = 0
-        self.LeafPercent = 0
 
         # Disk
         self.disk_used_percent = 0
-        self.TreePercent = 0
 
         # Network
         self.net_upload = 0
         self.net_download = 0
+
+        # Doom-scroll state
+        self.tree_health = 100.0
+        self.doom_seconds = 0.0
+        self.is_scrolling = False
+        self.recent_scrolls = 0
+        self.leaf_condition = "Good"
 
         self.system_timer = QTimer(self)
         self.system_timer.timeout.connect(
@@ -238,29 +405,32 @@ class TaskagotchiWindow(QWidget):
         self.move(x, y)
 
     # -----------------------------------------------------
-    # Update system state
+    # Update state
     # -----------------------------------------------------
 
     def update_system_state(self):
+        # Computer stats remain informational.
         self.plugged_in = task.check_PluggedIn()
 
         self.cpu_percent = task.check_CPUusage(
             task.CPUCheckLength
         )
 
-        # Actual RAM usage for text display
         self.ram_used_percent = task.check_MemoryRatio()
-
-        # Available RAM controls leaf condition
-        self.LeafPercent = 100 - self.ram_used_percent
-
-        # Actual disk usage for text display
         self.disk_used_percent = task.check_DiskRatio()
 
-        # Free disk percentage controls tree stage
-        self.TreePercent = 100 - self.disk_used_percent
+        self.net_upload, self.net_download = (
+            task.check_netUsage()
+        )
 
-        self.net_upload, self.net_download = task.check_netUsage()
+        # Doom scrolling now drives the actual pet/tree.
+        (
+            self.tree_health,
+            self.doom_seconds,
+            self.is_scrolling,
+            self.recent_scrolls,
+            self.leaf_condition,
+        ) = self.doom_tracker.update()
 
         self.update()
 
@@ -270,40 +440,37 @@ class TaskagotchiWindow(QWidget):
 
     def get_tree_stage(self):
         """
-        Free disk space controls tree fullness.
+        Doom-scroll tree health controls tree size.
 
-        81-100% free -> Stage 5
-        61-80% free  -> Stage 4
-        41-60% free  -> Stage 3
-        21-40% free  -> Stage 2
-        6-20% free   -> Stage 1
-        0-5% free    -> Fire, no tree
+        81-100% health -> Stage 5
+        61-80% health  -> Stage 4
+        41-60% health  -> Stage 3
+        21-40% health  -> Stage 2
+        1-20% health   -> Stage 1
+        0% health      -> Fire, no tree
         """
 
-        free_disk = self.TreePercent
-
-        if free_disk > 80:
+        if self.tree_health > 80:
             return 5
-        elif free_disk > 60:
+
+        elif self.tree_health > 60:
             return 4
-        elif free_disk > 40:
+
+        elif self.tree_health > 40:
             return 3
-        elif free_disk > 20:
+
+        elif self.tree_health > 20:
             return 2
+
         else:
             return 1
 
     def get_leaf_condition(self):
         """
-        Available RAM controls leaf condition.
+        Recent scroll intensity controls leaf condition.
         """
 
-        if self.LeafPercent > 70:
-            return "Good"
-        elif self.LeafPercent > 35:
-            return "Mid"
-        else:
-            return "Bad"
+        return self.leaf_condition
 
     def get_tree_image(self):
         stage = self.get_tree_stage()
@@ -313,11 +480,11 @@ class TaskagotchiWindow(QWidget):
 
     def is_on_fire(self):
         """
-        5% or less free disk space means:
-        hide the tree and show fire instead.
+        Tree reaches fire state after the configured
+        sustained doom-scroll duration.
         """
 
-        return self.TreePercent <= 5
+        return self.tree_health <= 0
 
     # -----------------------------------------------------
     # Draw images and text
@@ -333,7 +500,7 @@ class TaskagotchiWindow(QWidget):
             self.shadow_image,
         )
 
-        # Draw one of the five tree stages unless disk is critical
+        # Draw tree unless it has completely burned out.
         if not self.is_on_fire():
             tree_image = self.get_tree_image()
 
@@ -350,7 +517,7 @@ class TaskagotchiWindow(QWidget):
             self.pet_image,
         )
 
-        # Draw sun when plugged in
+        # Keep existing plugged-in sun behavior.
         if self.plugged_in:
             painter.drawPixmap(
                 self.sun_x,
@@ -358,7 +525,7 @@ class TaskagotchiWindow(QWidget):
                 self.sun_image,
             )
 
-        # Draw fire instead of a tree when <= 5% disk is free
+        # Fire replaces the tree at 0 health.
         if self.is_on_fire():
             fire_frame = self.fire_movie.currentPixmap()
 
@@ -405,6 +572,32 @@ class TaskagotchiWindow(QWidget):
             f"Down: {round(self.net_download, 2)} Mb/s",
         )
 
+        # Doom-scroll status
+        doom_minutes = self.doom_seconds / 60.0
+
+        if self.is_scrolling:
+            scroll_status = "Scrolling"
+        else:
+            scroll_status = "Recovering"
+
+        painter.drawText(
+            70,
+            150,
+            f"Tree: {round(self.tree_health, 1)}%",
+        )
+
+        painter.drawText(
+            70,
+            165,
+            f"{scroll_status}: {doom_minutes:.1f} min",
+        )
+
+        painter.drawText(
+            70,
+            180,
+            f"Scrolls/10s: {self.recent_scrolls}",
+        )
+
     # -----------------------------------------------------
     # Dragging
     # -----------------------------------------------------
@@ -436,8 +629,12 @@ class TaskagotchiWindow(QWidget):
             event.accept()
 
     # -----------------------------------------------------
-    # Keyboard
+    # Cleanup / Keyboard
     # -----------------------------------------------------
+
+    def closeEvent(self, event):
+        self.doom_tracker.stop()
+        event.accept()
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
