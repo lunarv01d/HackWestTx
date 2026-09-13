@@ -1,6 +1,5 @@
 import argparse
 import importlib.util
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -22,7 +21,6 @@ MODES = {
             "psutil": "psutil",
             "pynput": "pynput",
         },
-        "environment": [],
     },
     "CLI": {
         "module": "pet.cli",
@@ -31,7 +29,6 @@ MODES = {
         "dependencies": {
             "psutil": "psutil",
         },
-        "environment": [],
     },
     "Gemini": {
         "module": "gemini.gemini_window",
@@ -39,11 +36,8 @@ MODES = {
         "description": "Open the Taskagotchi Gemini assistant.",
         "dependencies": {
             "PySide6": "PySide6",
-            "google.genai": "google-genai",
+            "certifi": "certifi",
         },
-        "environment": [
-            "GEMINI_API_KEY",
-        ],
     },
     "Tray": {
         "module": "trayicon.trayicon",
@@ -54,7 +48,6 @@ MODES = {
             "PIL": "pillow",
             "psutil": "psutil",
         },
-        "environment": [],
     },
 }
 
@@ -76,7 +69,10 @@ def missing_dependencies(mode_name=None):
             "PySide6": "PySide6",
         }
     else:
-        required = MODES[mode_name].get("dependencies", {})
+        required = MODES[mode_name].get(
+            "dependencies",
+            {},
+        )
 
     missing = []
 
@@ -88,10 +84,6 @@ def missing_dependencies(mode_name=None):
 
 
 def install_packages(packages):
-    """
-    Install packages into the same Python interpreter running Taskagotchi.
-    """
-
     if not packages:
         return
 
@@ -128,10 +120,6 @@ def install_packages(packages):
 
 
 def ensure_dependencies(mode_name=None):
-    """
-    Install missing dependencies, then verify that Python can import them.
-    """
-
     missing = missing_dependencies(mode_name)
 
     if not missing:
@@ -149,38 +137,6 @@ def ensure_dependencies(mode_name=None):
             + "\n\nPython executable:\n"
             + sys.executable
         )
-
-
-# ---------------------------------------------------------
-# Environment checks
-# ---------------------------------------------------------
-
-def missing_environment(mode_name):
-    missing = []
-
-    for variable in MODES[mode_name].get("environment", []):
-        if not os.getenv(variable):
-            missing.append(variable)
-
-    return missing
-
-
-def environment_error_text(variables):
-    message = (
-        "Taskagotchi is missing required environment variables:\n\n"
-        f"{', '.join(variables)}"
-    )
-
-    if "GEMINI_API_KEY" in variables:
-        message += (
-            "\n\nSet your Gemini API key before launching Gemini.\n\n"
-            "macOS/Linux:\n"
-            'export GEMINI_API_KEY="your-key-here"\n\n'
-            "Windows PowerShell:\n"
-            '$env:GEMINI_API_KEY="your-key-here"'
-        )
-
-    return message
 
 
 # ---------------------------------------------------------
@@ -205,18 +161,7 @@ def launch_mode(mode_name):
             f"Expected: {mode['path']}"
         )
 
-    # IMPORTANT:
-    # Install the selected mode's dependencies BEFORE starting it.
-    # Previously main.py stopped here when Tray packages were missing,
-    # so trayicon.py never got a chance to install them.
     ensure_dependencies(mode_name)
-
-    missing_env = missing_environment(mode_name)
-
-    if missing_env:
-        raise RuntimeError(
-            environment_error_text(missing_env)
-        )
 
     return subprocess.Popen(
         [
@@ -233,7 +178,6 @@ def launch_mode(mode_name):
 # ---------------------------------------------------------
 
 def run_gui():
-    # The launcher itself needs PySide6. Install it first if necessary.
     ensure_dependencies()
 
     from PySide6.QtCore import Qt
@@ -259,7 +203,9 @@ def run_gui():
             layout = QVBoxLayout(central_widget)
 
             title = QLabel("Taskagotchi")
-            title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            title.setAlignment(
+                Qt.AlignmentFlag.AlignCenter
+            )
 
             title_font = title.font()
             title_font.setPointSize(22)
@@ -269,7 +215,9 @@ def run_gui():
             subtitle = QLabel(
                 "How would you like to run Taskagotchi?"
             )
-            subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            subtitle.setAlignment(
+                Qt.AlignmentFlag.AlignCenter
+            )
             subtitle.setWordWrap(True)
 
             self.status_label = QLabel("Ready")
@@ -292,9 +240,12 @@ def run_gui():
                 button = QPushButton(mode_name)
 
                 if mode_available(mode_name):
-                    button.setToolTip(mode["description"])
+                    button.setToolTip(
+                        mode["description"]
+                    )
                     button.clicked.connect(
-                        lambda checked=False, name=mode_name:
+                        lambda checked=False,
+                        name=mode_name:
                         self.start_mode(name)
                     )
                 else:
@@ -311,14 +262,24 @@ def run_gui():
                 layout.addWidget(button)
 
             layout.addSpacing(8)
-            layout.addWidget(self.close_after_launch)
-            layout.addWidget(self.status_label)
+            layout.addWidget(
+                self.close_after_launch
+            )
+            layout.addWidget(
+                self.status_label
+            )
 
-            quit_button = QPushButton("Quit Launcher")
-            quit_button.clicked.connect(self.close)
+            quit_button = QPushButton(
+                "Quit Launcher"
+            )
+            quit_button.clicked.connect(
+                self.close
+            )
             layout.addWidget(quit_button)
 
-            self.setCentralWidget(central_widget)
+            self.setCentralWidget(
+                central_widget
+            )
 
         def start_mode(self, mode_name):
             self.status_label.setText(
@@ -328,10 +289,14 @@ def run_gui():
             QApplication.processEvents()
 
             try:
-                process = launch_mode(mode_name)
+                process = launch_mode(
+                    mode_name
+                )
 
             except Exception as exc:
-                self.status_label.setText("Ready")
+                self.status_label.setText(
+                    "Ready"
+                )
 
                 QMessageBox.critical(
                     self,
@@ -347,16 +312,22 @@ def run_gui():
 
             if mode_name == "CLI":
                 self.status_label.setText(
-                    f"CLI started (PID {process.pid}). "
+                    f"CLI started "
+                    f"(PID {process.pid}). "
                     "Input/output is in the terminal "
                     "that launched this selector."
                 )
 
-            if self.close_after_launch.isChecked():
+            if (
+                self.close_after_launch
+                .isChecked()
+            ):
                 self.close()
 
     app = QApplication(sys.argv)
-    app.setApplicationName("Taskagotchi Launcher")
+    app.setApplicationName(
+        "Taskagotchi Launcher"
+    )
 
     launcher = TaskagotchiLauncher()
     launcher.show()
@@ -374,7 +345,9 @@ def parse_args():
         description="Taskagotchi launcher"
     )
 
-    mode_group = parser.add_mutually_exclusive_group()
+    mode_group = (
+        parser.add_mutually_exclusive_group()
+    )
 
     mode_group.add_argument(
         "--window",
