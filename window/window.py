@@ -180,7 +180,7 @@ class TaskagotchiWindow(QWidget):
                 f"Could not load fire animation: {fire_path}"
             )
 
-        # Repaint whenever the GIF moves to another frame.
+        # Repaint whenever the GIF changes frames
         self.fire_movie.frameChanged.connect(self.update)
         self.fire_movie.start()
 
@@ -194,12 +194,14 @@ class TaskagotchiWindow(QWidget):
         self.TreePercent = 0
 
         self.system_timer = QTimer(self)
-        self.system_timer.timeout.connect(self.update_system_state)
+        self.system_timer.timeout.connect(
+            self.update_system_state
+        )
 
-        # Update every 2 seconds.
+        # Update every 2 seconds
         self.system_timer.start(2000)
 
-        # Get values immediately on startup.
+        # Get values immediately on startup
         self.update_system_state()
 
         # -------------------------------------------------
@@ -208,10 +210,10 @@ class TaskagotchiWindow(QWidget):
 
         self.setFixedSize(self.pet_image.size())
 
-        # Used for dragging.
+        # Used for dragging
         self.drag_offset = None
 
-        # Start near bottom-right corner.
+        # Start near bottom-right corner
         screen = QApplication.primaryScreen().availableGeometry()
 
         x = screen.right() - self.width() - 20
@@ -223,16 +225,22 @@ class TaskagotchiWindow(QWidget):
     # Update system state
     # -----------------------------------------------------
 
-def update_system_state(self):
-    self.plugged_in = task.check_PluggedIn()
-    self.cpu_percent = task.check_CPUusage(task.CPUCheckLength)
+    def update_system_state(self):
+        self.plugged_in = task.check_PluggedIn()
 
-    ram_used = task.check_MemoryRatio()
+        self.cpu_percent = task.check_CPUusage(
+            task.CPUCheckLength
+        )
 
-    self.LeafPercent = 100 - ram_used
-    self.TreePercent = task.check_DiskRatio()
+        ram_used = task.check_MemoryRatio()
 
-    self.update()
+        # LeafPercent currently represents AVAILABLE RAM %
+        self.LeafPercent = 100 - ram_used
+
+        self.TreePercent = task.check_DiskRatio()
+
+        # Repaint the window with the new values
+        self.update()
 
     # -----------------------------------------------------
     # Tree / leaf selection
@@ -242,32 +250,37 @@ def update_system_state(self):
         """
         Disk usage controls the tree growth stage.
         """
+
         if self.TreePercent > 80:
             return 5
+
         elif self.TreePercent > 60:
             return 4
+
         elif self.TreePercent > 40:
             return 3
+
         elif self.TreePercent > 20:
             return 2
+
         else:
             return 1
 
     def get_leaf_condition(self):
         """
-        RAM usage controls the leaf condition.
+        Available RAM controls leaf condition.
 
-        Current behavior:
-            > 70% RAM  -> Good
-            35-70% RAM -> Mid
-            <= 35% RAM -> Bad
-
-        Reverse these if high RAM usage is supposed to hurt the tree.
+        > 70% available  -> Good
+        35-70% available -> Mid
+        <= 35% available -> Bad
         """
+
         if self.LeafPercent > 70:
             return "Good"
+
         elif self.LeafPercent > 35:
             return "Mid"
+
         else:
             return "Bad"
 
@@ -279,12 +292,10 @@ def update_system_state(self):
 
     def is_on_fire(self):
         """
-        Show Fire.gif whenever RAM or disk use exceeds 95%.
+        Show Fire.gif whenever disk use exceeds 95%.
         """
-        return (
-            self.LeafPercent > 95
-            or self.TreePercent > 95
-        )
+
+        return self.TreePercent > 95
 
     # -----------------------------------------------------
     # Draw images and text
@@ -293,7 +304,7 @@ def update_system_state(self):
     def paintEvent(self, event):
         painter = QPainter(self)
 
-        # Draw the selected tree.
+        # Draw the selected tree
         tree_image = self.get_tree_image()
 
         painter.drawPixmap(
@@ -302,14 +313,14 @@ def update_system_state(self):
             tree_image,
         )
 
-        # Draw the pot.
+        # Draw the pot
         painter.drawPixmap(
             self.pet_x,
             self.pet_y,
             self.pet_image,
         )
 
-        # Draw the sun only while plugged in.
+        # Draw the sun only while plugged in
         if self.plugged_in:
             painter.drawPixmap(
                 self.sun_x,
@@ -317,7 +328,7 @@ def update_system_state(self):
                 self.sun_image,
             )
 
-        # Draw animated fire if RAM or disk is above 95%.
+        # Draw animated fire if disk usage is above 95%
         if self.is_on_fire():
             fire_frame = self.fire_movie.currentPixmap()
 
@@ -387,7 +398,7 @@ def update_system_state(self):
     # -----------------------------------------------------
 
     def keyPressEvent(self, event):
-        # Escape closes Taskagotchi while developing.
+        # Escape closes Taskagotchi while developing
         if event.key() == Qt.Key.Key_Escape:
             self.close()
 
