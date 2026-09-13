@@ -258,6 +258,16 @@ class TaskagotchiWindow(QWidget):
         )
 
         # -------------------------------------------------
+        # Sun animation
+        # -------------------------------------------------
+
+        self.sun_angle = 0.0
+
+        self.sun_spin_timer = QTimer(self)
+        self.sun_spin_timer.timeout.connect(self.rotate_sun)
+        self.sun_spin_timer.start(50)
+
+        # -------------------------------------------------
         # Easy-to-adjust drawing positions
         # -------------------------------------------------
 
@@ -378,6 +388,17 @@ class TaskagotchiWindow(QWidget):
         self.recent_scrolls = 0
         self.leaf_condition = "Good"
 
+        # Keep track of the currently displayed tree stage.
+        # This prevents the tree from rapidly flipping back and forth
+        # when health is hovering near a stage boundary.
+        self.current_tree_stage = 5
+
+        # Hysteresis buffer, in percentage points.
+        # Example around the 80% boundary:
+        #   Stage 5 -> Stage 4 only after health reaches 75%
+        #   Stage 4 -> Stage 5 only after health reaches 85%
+        self.stage_hysteresis = 5.0
+
         self.system_timer = QTimer(self)
         self.system_timer.timeout.connect(
             self.update_system_state
@@ -403,6 +424,15 @@ class TaskagotchiWindow(QWidget):
         y = screen.bottom() - self.height() - 20
 
         self.move(x, y)
+
+    # -----------------------------------------------------
+    # Sun animation
+    # -----------------------------------------------------
+
+    def rotate_sun(self):
+        # Increase this number to make the sun spin faster.
+        self.sun_angle = (self.sun_angle + 2.0) % 360.0
+        self.update()
 
     # -----------------------------------------------------
     # Update state
@@ -442,28 +472,47 @@ class TaskagotchiWindow(QWidget):
         """
         Doom-scroll tree health controls tree size.
 
-        81-100% health -> Stage 5
-        61-80% health  -> Stage 4
-        41-60% health  -> Stage 3
-        21-40% health  -> Stage 2
-        1-20% health   -> Stage 1
-        0% health      -> Fire, no tree
+        A small hysteresis buffer makes the tree less sensitive
+        around stage boundaries, so it does not rapidly bounce
+        between two images while health is recovering/falling.
+
+        Default 5% buffer:
+          Stage 5 -> 4 at 75%, back to 5 at 85%
+          Stage 4 -> 3 at 55%, back to 4 at 65%
+          Stage 3 -> 2 at 35%, back to 3 at 45%
+          Stage 2 -> 1 at 15%, back to 2 at 25%
         """
 
-        if self.tree_health > 80:
-            return 5
+        health = self.tree_health
+        margin = self.stage_hysteresis
 
-        elif self.tree_health > 60:
-            return 4
+        if self.current_tree_stage == 5:
+            if health <= 80 - margin:
+                self.current_tree_stage = 4
 
-        elif self.tree_health > 40:
-            return 3
+        elif self.current_tree_stage == 4:
+            if health >= 80 + margin:
+                self.current_tree_stage = 5
+            elif health <= 60 - margin:
+                self.current_tree_stage = 3
 
-        elif self.tree_health > 20:
-            return 2
+        elif self.current_tree_stage == 3:
+            if health >= 60 + margin:
+                self.current_tree_stage = 4
+            elif health <= 40 - margin:
+                self.current_tree_stage = 2
+
+        elif self.current_tree_stage == 2:
+            if health >= 40 + margin:
+                self.current_tree_stage = 3
+            elif health <= 20 - margin:
+                self.current_tree_stage = 1
 
         else:
-            return 1
+            if health >= 20 + margin:
+                self.current_tree_stage = 2
+
+        return self.current_tree_stage
 
     def get_leaf_condition(self):
         """
@@ -517,13 +566,27 @@ class TaskagotchiWindow(QWidget):
             self.pet_image,
         )
 
-        # Keep existing plugged-in sun behavior.
+        # Draw the sun spinning around its center while plugged in.
         if self.plugged_in:
+            painter.save()
+
+            sun_center_x = self.sun_x + (self.sun_image.width() / 2)
+            sun_center_y = self.sun_y + (self.sun_image.height() / 2)
+
+            painter.translate(
+                sun_center_x,
+                sun_center_y,
+            )
+
+            painter.rotate(self.sun_angle)
+
             painter.drawPixmap(
-                self.sun_x,
-                self.sun_y,
+                int(-self.sun_image.width() / 2),
+                int(-self.sun_image.height() / 2),
                 self.sun_image,
             )
+
+            painter.restore()
 
         # Fire replaces the tree at 0 health.
         if self.is_on_fire():
