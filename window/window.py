@@ -30,7 +30,6 @@ def install_dependencies():
 
     print("\nInstalling required components...")
 
-    # Make sure pip exists
     try:
         subprocess.check_call(
             [sys.executable, "-m", "pip", "--version"],
@@ -180,7 +179,6 @@ class TaskagotchiWindow(QWidget):
                 f"Could not load fire animation: {fire_path}"
             )
 
-        # Repaint whenever the GIF changes frames
         self.fire_movie.frameChanged.connect(self.update)
         self.fire_movie.start()
 
@@ -190,6 +188,7 @@ class TaskagotchiWindow(QWidget):
 
         self.plugged_in = False
         self.cpu_percent = 0
+        self.ram_used_percent = 0
         self.LeafPercent = 0
         self.TreePercent = 0
 
@@ -198,10 +197,7 @@ class TaskagotchiWindow(QWidget):
             self.update_system_state
         )
 
-        # Update every 2 seconds
         self.system_timer.start(2000)
-
-        # Get values immediately on startup
         self.update_system_state()
 
         # -------------------------------------------------
@@ -209,11 +205,8 @@ class TaskagotchiWindow(QWidget):
         # -------------------------------------------------
 
         self.setFixedSize(self.pet_image.size())
-
-        # Used for dragging
         self.drag_offset = None
 
-        # Start near bottom-right corner
         screen = QApplication.primaryScreen().availableGeometry()
 
         x = screen.right() - self.width() - 20
@@ -232,14 +225,14 @@ class TaskagotchiWindow(QWidget):
             task.CPUCheckLength
         )
 
-        ram_used = task.check_MemoryRatio()
+        # Actual RAM usage for text display
+        self.ram_used_percent = task.check_MemoryRatio()
 
-        # LeafPercent currently represents AVAILABLE RAM %
-        self.LeafPercent = 100 - ram_used
+        # Available RAM for leaf health
+        self.LeafPercent = 100 - self.ram_used_percent
 
         self.TreePercent = task.check_DiskRatio()
 
-        # Repaint the window with the new values
         self.update()
 
     # -----------------------------------------------------
@@ -247,40 +240,22 @@ class TaskagotchiWindow(QWidget):
     # -----------------------------------------------------
 
     def get_tree_stage(self):
-        """
-        Disk usage controls the tree growth stage.
-        """
-
         if self.TreePercent > 80:
             return 5
-
         elif self.TreePercent > 60:
             return 4
-
         elif self.TreePercent > 40:
             return 3
-
         elif self.TreePercent > 20:
             return 2
-
         else:
             return 1
 
     def get_leaf_condition(self):
-        """
-        Available RAM controls leaf condition.
-
-        > 70% available  -> Good
-        35-70% available -> Mid
-        <= 35% available -> Bad
-        """
-
         if self.LeafPercent > 70:
             return "Good"
-
         elif self.LeafPercent > 35:
             return "Mid"
-
         else:
             return "Bad"
 
@@ -291,10 +266,6 @@ class TaskagotchiWindow(QWidget):
         return self.tree_images[(stage, condition)]
 
     def is_on_fire(self):
-        """
-        Show Fire.gif whenever disk use exceeds 95%.
-        """
-
         return self.TreePercent > 95
 
     # -----------------------------------------------------
@@ -304,7 +275,6 @@ class TaskagotchiWindow(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
 
-        # Draw the selected tree
         tree_image = self.get_tree_image()
 
         painter.drawPixmap(
@@ -313,14 +283,12 @@ class TaskagotchiWindow(QWidget):
             tree_image,
         )
 
-        # Draw the pot
         painter.drawPixmap(
             self.pet_x,
             self.pet_y,
             self.pet_image,
         )
 
-        # Draw the sun only while plugged in
         if self.plugged_in:
             painter.drawPixmap(
                 self.sun_x,
@@ -328,7 +296,6 @@ class TaskagotchiWindow(QWidget):
                 self.sun_image,
             )
 
-        # Draw animated fire if disk usage is above 95%
         if self.is_on_fire():
             fire_frame = self.fire_movie.currentPixmap()
 
@@ -354,7 +321,7 @@ class TaskagotchiWindow(QWidget):
         painter.drawText(
             70,
             90,
-            f"RAM: {round(self.LeafPercent, 2)}%",
+            f"RAM: {round(self.ram_used_percent, 2)}%",
         )
 
         painter.drawText(
@@ -398,10 +365,8 @@ class TaskagotchiWindow(QWidget):
     # -----------------------------------------------------
 
     def keyPressEvent(self, event):
-        # Escape closes Taskagotchi while developing
         if event.key() == Qt.Key.Key_Escape:
             self.close()
-
         else:
             super().keyPressEvent(event)
 
