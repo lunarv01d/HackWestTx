@@ -227,7 +227,7 @@ class TaskagotchiWindow(QWidget):
         self.plugged_in = task.check_PluggedIn()
         self.cpu_percent = task.check_CPUusage(task.CPUCheckLength)
         self.LeafPercent = 100 - task.check_MemoryRatio()
-        self.TreePercent = 100 - task.check_DiskRatio()
+        self.TreePercent = task.check_DiskRatio()
 
         # Repaint the window with the new values.
         self.update()
