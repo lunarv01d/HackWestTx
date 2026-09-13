@@ -1,0 +1,7 @@
+PyInstaller>=6.10,<7
+PySide6>=6.8
+psutil>=6
+pynput>=1.7
+pystray>=0.19
+pillow>=10
+certifi>=2024

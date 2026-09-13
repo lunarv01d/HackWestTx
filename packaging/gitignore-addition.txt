@@ -1,0 +1,7 @@
+
+# Native build output
+.build-venv/
+build/
+dist/
+packaging/Taskagotchi.ico
+packaging/Taskagotchi.icns
