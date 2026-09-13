@@ -218,11 +218,13 @@ class TaskagotchiWindow(QWidget):
         painter.drawText(70, 75, f"CPU: {cpu_percent}%")
         
         
-        ram_percent = task.MemPer()
+        ram_percent = task.check_MemoryRatio()
         painter.setPen(Qt.GlobalColor.white)
         painter.drawText(70, 90, f"RAM: {ram_percent}%")
 
-
+        disk_percent = task.check_DiskRatio()
+        painter.setPen(Qt.GlobalColor.white)
+        painter.drawText(70, 105, f"Disk: {disk_percent}%")
 
 
     def mousePressEvent(self, event):
