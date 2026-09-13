@@ -38,15 +38,24 @@ def check_BatteryPercent():
     return psutil.sensors_battery().percent
 
 def check_PluggedIn():
-    return psutil.sensors_battery().power_plugged
+    battery = psutil.sensors_battery()
+
+    if battery is None:
+        return True
+
+    return battery.power_plugged
 
 def check_MainFunc():
     CpuUse = check_CPUusage(CPUCheckLength)
     print(CpuUse, "% CPU")
     MemUse = check_MemoryUsage()
-    print(MemUse, "GB of Memory in use")
+    print(round(MemUse, 2), "GB of Memory in use")
+    MemPer = check_MemoryRatio()
+    print(int(MemPer * 100), "% GB of Memory in use")
     DiskUse = check_DiskUsage()
-    print(DiskUse, "GB of Disk in use")
+    print(round(DiskUse, 2), "GB of Disk in use")
+    DiskPer = check_DiskRatio()
+    print(int(DiskPer * 100), "% GB of Disk in use")
     BatPer = check_BatteryPercent()
     print("Battery at", BatPer, "%")
     PlugIn = check_PluggedIn()

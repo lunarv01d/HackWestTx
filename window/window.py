@@ -1,6 +1,7 @@
 import sys
 import subprocess
 import importlib.util
+from pathlib import Path
 
 
 # ---------------------------------------------------------
@@ -23,6 +24,7 @@ def install_dependencies():
         return
 
     print("Taskagotchi is missing required components:")
+
     for package in missing_packages:
         print(f"  - {package}")
 
@@ -34,8 +36,10 @@ def install_dependencies():
             [sys.executable, "-m", "pip", "--version"],
             stdout=subprocess.DEVNULL
         )
+
     except subprocess.CalledProcessError:
         print("pip was not found. Attempting to install pip...")
+
         subprocess.check_call(
             [sys.executable, "-m", "ensurepip", "--upgrade"]
         )
@@ -50,6 +54,7 @@ def install_dependencies():
                 *missing_packages
             ]
         )
+
     except subprocess.CalledProcessError:
         print("\nCould not install Taskagotchi dependencies.")
         print("Check your internet connection and Python permissions.")
@@ -62,14 +67,24 @@ install_dependencies()
 
 
 # ---------------------------------------------------------
+# Project path
+# ---------------------------------------------------------
+
+ROOT = Path(__file__).resolve().parents[1]
+
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+
+# ---------------------------------------------------------
 # Normal imports
 # ---------------------------------------------------------
 
-from pathlib import Path
-
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QWidget
+
+import Taskagotchi.Taskagotchi.Taskagotchi as task
 
 
 # ---------------------------------------------------------
@@ -77,6 +92,7 @@ from PySide6.QtWidgets import QApplication, QWidget
 # ---------------------------------------------------------
 
 class TaskagotchiWindow(QWidget):
+
     def __init__(self):
         super().__init__()
 
@@ -92,7 +108,10 @@ class TaskagotchiWindow(QWidget):
             True
         )
 
-        # Locate image relative to this file
+        # -------------------------------------------------
+        # Load pet image
+        # -------------------------------------------------
+
         image_path = (
             Path(__file__).resolve().parent
             / "assets"
@@ -106,10 +125,46 @@ class TaskagotchiWindow(QWidget):
                 f"Could not load Taskagotchi image: {image_path}"
             )
 
+        # -------------------------------------------------
+        # Load sun image
+        # -------------------------------------------------
+
+        sun_path = (
+            Path(__file__).resolve().parent
+            / "assets"
+            / "Sun.png"
+        )
+
+        self.sun_image = QPixmap(str(sun_path))
+
+        if self.sun_image.isNull():
+            raise FileNotFoundError(
+                f"Could not load sun image: {sun_path}"
+            )
+
+        # -------------------------------------------------
+        # Power state
+        # -------------------------------------------------
+
+        self.plugged_in = False
+
+        self.power_timer = QTimer(self)
+        self.power_timer.timeout.connect(self.update_power_state)
+
+        # Check power every 2 seconds
+        self.power_timer.start(2000)
+
+        # Check immediately on startup
+        self.update_power_state()
+
+        # -------------------------------------------------
+        # Window setup
+        # -------------------------------------------------
+
         # Size window to pet image
         self.setFixedSize(self.pet_image.size())
 
-        # Dragging
+        # Used for dragging
         self.drag_offset = None
 
         # Start near bottom-right corner
@@ -120,9 +175,41 @@ class TaskagotchiWindow(QWidget):
 
         self.move(x, y)
 
+    # -----------------------------------------------------
+    # Update power state
+    # -----------------------------------------------------
+
+    def update_power_state(self):
+        self.plugged_in = task.check_PluggedIn()
+
+        # Repaint the window
+        self.update()
+
+    # -----------------------------------------------------
+    # Draw images
+    # -----------------------------------------------------
+
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.drawPixmap(0, 0, self.pet_image)
+
+        # Always draw the pet
+        painter.drawPixmap(
+            0,
+            0,
+            self.pet_image
+        )
+
+        # Draw the sun only while plugged in
+        if self.plugged_in:
+            painter.drawPixmap(
+                120,
+                10,
+                self.sun_image
+            )
+
+    # -----------------------------------------------------
+    # Dragging
+    # -----------------------------------------------------
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -150,10 +237,15 @@ class TaskagotchiWindow(QWidget):
             self.drag_offset = None
             event.accept()
 
+    # -----------------------------------------------------
+    # Keyboard
+    # -----------------------------------------------------
+
     def keyPressEvent(self, event):
         # Escape closes Taskagotchi while developing
         if event.key() == Qt.Key.Key_Escape:
             self.close()
+
         else:
             super().keyPressEvent(event)
 
@@ -168,6 +260,7 @@ def main():
     app.setApplicationName("Taskagotchi")
 
     window = TaskagotchiWindow()
+
     window.show()
     window.raise_()
 
