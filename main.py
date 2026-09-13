@@ -1,5 +1,6 @@
 import argparse
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -65,8 +66,10 @@ def module_available(import_name):
 
 def missing_dependencies(mode_name=None):
     if mode_name is None:
+        # The launcher itself now uses psutil for Quit Everything.
         required = {
             "PySide6": "PySide6",
+            "psutil": "psutil",
         }
     else:
         required = MODES[mode_name].get(
@@ -174,6 +177,135 @@ def launch_mode(mode_name):
 
 
 # ---------------------------------------------------------
+# Taskagotchi process detection / shutdown
+# ---------------------------------------------------------
+
+def is_taskagotchi_process(process):
+    """
+    Return True only for Python processes that appear to belong
+    to Taskagotchi.
+
+    This deliberately does not kill a terminal, IDE, or other process
+    simply because its working directory happens to be the repo.
+    """
+
+    import psutil
+
+    try:
+        cmdline = process.cmdline()
+    except (
+        psutil.NoSuchProcess,
+        psutil.AccessDenied,
+        psutil.ZombieProcess,
+    ):
+        return False
+
+    if not cmdline:
+        return False
+
+    command = " ".join(str(part) for part in cmdline)
+
+    normalized = (
+        command
+        .replace("\\", "/")
+        .lower()
+    )
+
+    root_text = (
+        str(ROOT)
+        .replace("\\", "/")
+        .lower()
+    )
+
+    markers = (
+        "-m window.window",
+        "-m pet.cli",
+        "-m gemini.gemini_window",
+        "-m trayicon.trayicon",
+        f"{root_text}/main.py",
+        f"{root_text}/window/window.py",
+        f"{root_text}/pet/cli.py",
+        f"{root_text}/gemini/gemini_window.py",
+        f"{root_text}/trayicon/trayicon.py",
+    )
+
+    return any(
+        marker in normalized
+        for marker in markers
+    )
+
+
+def find_taskagotchi_processes():
+    """
+    Find every Taskagotchi process except the launcher process
+    currently executing this function.
+    """
+
+    import psutil
+
+    current_pid = os.getpid()
+    found = {}
+
+    for process in psutil.process_iter():
+        if process.pid == current_pid:
+            continue
+
+        if not is_taskagotchi_process(process):
+            continue
+
+        found[process.pid] = process
+
+        try:
+            for child in process.children(
+                recursive=True
+            ):
+                if child.pid != current_pid:
+                    found[child.pid] = child
+        except (
+            psutil.NoSuchProcess,
+            psutil.AccessDenied,
+        ):
+            pass
+
+    return list(found.values())
+
+
+def quit_everything():
+    """
+    Stop all other Taskagotchi processes, then allow the current
+    launcher to close itself normally.
+    """
+
+    import psutil
+
+    processes = find_taskagotchi_processes()
+
+    for process in processes:
+        try:
+            process.terminate()
+        except (
+            psutil.NoSuchProcess,
+            psutil.AccessDenied,
+        ):
+            pass
+
+    if processes:
+        _, alive = psutil.wait_procs(
+            processes,
+            timeout=2.0,
+        )
+
+        for process in alive:
+            try:
+                process.kill()
+            except (
+                psutil.NoSuchProcess,
+                psutil.AccessDenied,
+            ):
+                pass
+
+
+# ---------------------------------------------------------
 # GUI launcher
 # ---------------------------------------------------------
 
@@ -269,13 +401,29 @@ def run_gui():
                 self.status_label
             )
 
-            quit_button = QPushButton(
+            quit_launcher_button = QPushButton(
                 "Quit Launcher"
             )
-            quit_button.clicked.connect(
+            quit_launcher_button.clicked.connect(
                 self.close
             )
-            layout.addWidget(quit_button)
+            layout.addWidget(
+                quit_launcher_button
+            )
+
+            quit_everything_button = QPushButton(
+                "Quit Everything"
+            )
+            quit_everything_button.setToolTip(
+                "Close all Taskagotchi windows, CLI sessions, "
+                "Gemini windows, tray instances, and this launcher."
+            )
+            quit_everything_button.clicked.connect(
+                self.quit_all
+            )
+            layout.addWidget(
+                quit_everything_button
+            )
 
             self.setCentralWidget(
                 central_widget
@@ -323,6 +471,25 @@ def run_gui():
                 .isChecked()
             ):
                 self.close()
+
+        def quit_all(self):
+            self.status_label.setText(
+                "Closing Taskagotchi..."
+            )
+            QApplication.processEvents()
+
+            try:
+                quit_everything()
+
+            except Exception as exc:
+                QMessageBox.warning(
+                    self,
+                    "Taskagotchi",
+                    "Some Taskagotchi processes may not "
+                    f"have closed cleanly.\n\n{exc}",
+                )
+
+            QApplication.quit()
 
     app = QApplication(sys.argv)
     app.setApplicationName(
