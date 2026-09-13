@@ -19,6 +19,8 @@ def userInput():
     if CPUCheckLength > CheckInterval:
         CPUCheckLength = CheckInterval
 
+def check_User():
+    return psutil.users()[0].name
 
 def check_CPUusage(CPUL):
     return (psutil.cpu_percent(CPUL))
@@ -33,7 +35,7 @@ def check_DiskUsage():
     return psutil.disk_usage('/').used / 1000000000  # bytes to Gigabytes
 
 def check_DiskRatio():
-    return psutil.disk_usage('/').percent  # Ratio of used to total
+    return psutil.disk_usage(f'/Users/{check_User()}/').percent  # Ratio of used to total
 
 def check_BatteryPercent():
     return psutil.sensors_battery().percent
