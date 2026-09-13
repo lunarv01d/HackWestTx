@@ -232,6 +232,8 @@ class TaskagotchiWindow(QWidget):
         self.LeafPercent = 100 - self.ram_used_percent
 
         self.TreePercent = task.check_DiskRatio()
+        
+        self.net_upload, self.net_download = task.check_netUsage()
 
         self.update()
 
@@ -267,6 +269,7 @@ class TaskagotchiWindow(QWidget):
 
     def is_on_fire(self):
         return self.TreePercent > 95
+    
 
     # -----------------------------------------------------
     # Draw images and text
@@ -295,6 +298,7 @@ class TaskagotchiWindow(QWidget):
                 self.sun_y,
                 self.sun_image,
             )
+            
 
         if self.is_on_fire():
             fire_frame = self.fire_movie.currentPixmap()
@@ -328,6 +332,18 @@ class TaskagotchiWindow(QWidget):
             70,
             105,
             f"Disk: {round(self.TreePercent, 2)}%",
+        )
+        
+        painter.drawText(
+            70,
+            120,
+            f"Up: {round(self.net_upload, 2)} Mb/s",
+        )
+
+        painter.drawText(
+            70,
+            135,
+            f"Down: {round(self.net_download, 2)} Mb/s",
         )
 
     # -----------------------------------------------------

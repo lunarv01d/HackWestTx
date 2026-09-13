@@ -5,6 +5,8 @@ CPUCheckLength = 0
 RAMCheckLength = 0
 CheckInterval = 0
 Monitoring = False
+_last_net = psutil.net_io_counters()
+_last_net_time = time.monotonic()
 
 
 def userInput():
@@ -48,6 +50,38 @@ def check_PluggedIn():
 
     return battery.power_plugged
 
+def check_netUsage():
+    global _last_net
+    global _last_net_time
+
+    # Get current network counters and time
+    current_net = psutil.net_io_counters()
+    current_time = time.monotonic()
+
+    # Time since last network check
+    elapsed_time = current_time - _last_net_time
+
+    if elapsed_time <= 0:
+        return 0.0, 0.0
+
+    # Calculate bytes transferred since last check
+    bytes_sent = current_net.bytes_sent - _last_net.bytes_sent
+    bytes_received = current_net.bytes_recv - _last_net.bytes_recv
+
+    # Convert to bytes per second
+    upload_bytes_per_sec = bytes_sent / elapsed_time
+    download_bytes_per_sec = bytes_received / elapsed_time
+
+    # Convert bytes/sec to megabits/sec
+    upload_mbps = (upload_bytes_per_sec * 8) / 1_000_000
+    download_mbps = (download_bytes_per_sec * 8) / 1_000_000
+
+    # Save current values for next check
+    _last_net = current_net
+    _last_net_time = current_time
+
+    return upload_mbps, download_mbps
+
 def check_MainFunc():
     CpuUse = check_CPUusage(CPUCheckLength)
     print(CpuUse, "% CPU")
@@ -63,6 +97,9 @@ def check_MainFunc():
     print("Battery at", BatPer, "%")
     PlugIn = check_PluggedIn()
     print(PlugIn)
+    upload, download = check_netUsage()
+    print("Upload:", round(upload, 2), "Mbps")
+    print("Download:", round(download, 2), "Mbps")
 
 
 def main():
