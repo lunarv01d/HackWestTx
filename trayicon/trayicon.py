@@ -1,11 +1,8 @@
+import importlib.util
 import os
 import subprocess
 import sys
 from pathlib import Path
-
-import psutil
-import pystray
-from PIL import Image
 
 
 # ---------------------------------------------------------
@@ -15,6 +12,88 @@ from PIL import Image
 TRAY_DIR = Path(__file__).resolve().parent
 ROOT = TRAY_DIR.parent
 ICON_PATH = TRAY_DIR / "TrayIcon.png"
+
+
+# ---------------------------------------------------------
+# Dependency bootstrap
+# ---------------------------------------------------------
+
+def install_dependencies():
+    """
+    Install only the packages required for tray mode itself.
+
+    Gemini has its own dependency check in main.py, so google-genai
+    is intentionally not installed here.
+    """
+
+    required_packages = {
+        "pystray": "pystray",
+        "PIL": "pillow",
+        "psutil": "psutil",
+    }
+
+    missing_packages = []
+
+    for import_name, pip_name in required_packages.items():
+        try:
+            available = (
+                importlib.util.find_spec(import_name)
+                is not None
+            )
+        except (
+            ModuleNotFoundError,
+            ValueError,
+        ):
+            available = False
+
+        if not available:
+            missing_packages.append(pip_name)
+
+    if not missing_packages:
+        return
+
+    print(
+        "Taskagotchi tray is missing required packages:"
+    )
+
+    for package in missing_packages:
+        print(f"  - {package}")
+
+    print("\nInstalling required packages...")
+
+    try:
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                *missing_packages,
+            ],
+            cwd=str(ROOT),
+        )
+
+    except subprocess.CalledProcessError as exc:
+        print(
+            "\nCould not install Taskagotchi tray dependencies."
+        )
+        print(
+            "Install them manually with:"
+        )
+        print(
+            f"{sys.executable} -m pip install "
+            + " ".join(missing_packages)
+        )
+        raise SystemExit(exc.returncode)
+
+    print("\nTray dependencies installed successfully.\n")
+
+
+install_dependencies()
+
+import psutil
+import pystray
+from PIL import Image
 
 
 # ---------------------------------------------------------
@@ -28,7 +107,7 @@ def launch_window(icon=None, item=None):
             "-m",
             "window.window",
         ],
-        cwd=ROOT,
+        cwd=str(ROOT),
     )
 
 
@@ -39,7 +118,7 @@ def launch_cli(icon=None, item=None):
             "-m",
             "pet.cli",
         ],
-        cwd=ROOT,
+        cwd=str(ROOT),
     )
 
 
@@ -49,16 +128,24 @@ def launch_launcher(icon=None, item=None):
             sys.executable,
             str(ROOT / "main.py"),
         ],
-        cwd=ROOT,
+        cwd=str(ROOT),
     )
 
 
-# ---------------------------------------------------------
-# Placeholder actions
-# ---------------------------------------------------------
-
 def ask_gemini(icon=None, item=None):
-    print("Ask Gemini is not implemented yet.")
+    """
+    Route Gemini through main.py so the launcher performs the
+    google-genai and GEMINI_API_KEY checks in one place.
+    """
+
+    subprocess.Popen(
+        [
+            sys.executable,
+            str(ROOT / "main.py"),
+            "--gemini",
+        ],
+        cwd=str(ROOT),
+    )
 
 
 def open_settings(icon=None, item=None):
@@ -91,21 +178,33 @@ def is_taskagotchi_process(process):
     if not cmdline:
         return False
 
-    command = " ".join(str(part) for part in cmdline)
+    command = " ".join(
+        str(part)
+        for part in cmdline
+    )
 
-    # Normalize Windows backslashes so the same checks work on
-    # macOS, Linux, and Windows.
-    normalized = command.replace("\\", "/").lower()
-    root_text = str(ROOT).replace("\\", "/").lower()
+    normalized = (
+        command
+        .replace("\\", "/")
+        .lower()
+    )
+
+    root_text = (
+        str(ROOT)
+        .replace("\\", "/")
+        .lower()
+    )
 
     markers = (
         "-m window.window",
         "-m pet.cli",
         "-m trayicon.trayicon",
+        "-m gemini.gemini_window",
         f"{root_text}/main.py",
         f"{root_text}/window/window.py",
         f"{root_text}/pet/cli.py",
         f"{root_text}/trayicon/trayicon.py",
+        f"{root_text}/gemini/gemini_window.py",
     )
 
     return any(
@@ -116,8 +215,8 @@ def is_taskagotchi_process(process):
 
 def find_taskagotchi_processes():
     """
-    Finds all Taskagotchi launcher/window/CLI/tray processes except
-    this tray process itself.
+    Finds all Taskagotchi launcher/window/CLI/Gemini/tray processes
+    except this tray process itself.
     """
 
     current_pid = os.getpid()
@@ -133,9 +232,10 @@ def find_taskagotchi_processes():
 
         found[process.pid] = process
 
-        # Include helper/child processes spawned by Taskagotchi.
         try:
-            for child in process.children(recursive=True):
+            for child in process.children(
+                recursive=True
+            ):
                 if child.pid != current_pid:
                     found[child.pid] = child
 
@@ -154,20 +254,17 @@ def find_taskagotchi_processes():
 
 def quit_taskagotchi(icon, item=None):
     """
-    Stops every Taskagotchi-related process we can identify:
+    Stops every Taskagotchi-related process we can identify.
 
-      - Taskagotchi window(s)
+    This includes:
+      - desktop window(s)
       - CLI instance(s)
+      - Gemini window(s)
       - launcher instance(s)
       - other tray instance(s)
-      - helper child processes
-
-    It first asks them to terminate cleanly. Anything still alive
-    after two seconds is force-killed.
+      - child/helper processes
     """
 
-    # Hide the tray icon immediately so clicking Quit gives
-    # visible feedback before process cleanup begins.
     try:
         icon.visible = False
     except Exception:
@@ -175,7 +272,6 @@ def quit_taskagotchi(icon, item=None):
 
     processes = find_taskagotchi_processes()
 
-    # Graceful termination first.
     for process in processes:
         try:
             process.terminate()
@@ -186,14 +282,12 @@ def quit_taskagotchi(icon, item=None):
         ):
             pass
 
-    # Wait briefly for clean shutdown.
     if processes:
         _, alive = psutil.wait_procs(
             processes,
             timeout=2.0,
         )
 
-        # Force-close anything that did not terminate.
         for process in alive:
             try:
                 process.kill()
@@ -204,7 +298,6 @@ def quit_taskagotchi(icon, item=None):
             ):
                 pass
 
-    # Stop this tray process last.
     icon.stop()
 
 
@@ -227,6 +320,10 @@ def main():
             default=True,
         ),
         pystray.MenuItem(
+            "Ask Gemini",
+            ask_gemini,
+        ),
+        pystray.MenuItem(
             "Open CLI",
             launch_cli,
         ),
@@ -235,10 +332,6 @@ def main():
             launch_launcher,
         ),
         pystray.Menu.SEPARATOR,
-        pystray.MenuItem(
-            "Ask Gemini",
-            ask_gemini,
-        ),
         pystray.MenuItem(
             "Settings",
             open_settings,
