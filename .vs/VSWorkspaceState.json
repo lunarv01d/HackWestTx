@@ -1,8 +1,11 @@
 {
   "ExpandedNodes": [
     "",
+    "\\pet",
+    "\\Taskagotchi",
+    "\\Taskagotchi\\Taskagotchi",
     "\\window"
   ],
-  "SelectedNode": "\\window\\window.py",
+  "SelectedNode": "\\Taskagotchi\\Taskagotchi\\Taskagotchi.py",
   "PreviewInSolutionExplorer": false
 }
