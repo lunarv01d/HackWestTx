@@ -194,33 +194,36 @@ class TaskagotchiWindow(QWidget):
 
         # Always draw the pet
         painter.drawPixmap(
-            0,
-            0,
+            -50,  #x
+            0,  #y
             self.pet_image
         )
 
         # Draw the sun only while plugged in
         if self.plugged_in:
             painter.drawPixmap(
-                120,
-                10,
+                45,    #x
+                10,     #y
                 self.sun_image
             )
-            
-
-    # -----------------------------------------------------
-    # Draw images
-    # -----------------------------------------------------
-
-    cpuPercent = task.check_CPUusage(task.CPUCheckLength)
-    print(cpuPercent, "% CPU")
-
 
 
 
     # -----------------------------------------------------
-    # Dragging
+    # Add Text
     # -----------------------------------------------------
+
+        cpu_percent = task.check_CPUusage(task.CPUCheckLength)
+        painter.setPen(Qt.GlobalColor.white)
+        painter.drawText(70, 75, f"CPU: {cpu_percent}%")
+        
+        
+        ram_percent = task.MemPer()
+        painter.setPen(Qt.GlobalColor.white)
+        painter.drawText(70, 90, f"RAM: {ram_percent}%")
+
+
+
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:

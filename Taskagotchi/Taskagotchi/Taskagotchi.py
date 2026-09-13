@@ -2,6 +2,7 @@ import psutil
 import time
 
 CPUCheckLength = 0
+RAMCheckLength = 0
 CheckInterval = 0
 Monitoring = False
 
@@ -26,7 +27,7 @@ def check_MemoryUsage():
     return psutil.virtual_memory().used / 1000000000  # bytes to Gigabytes
 
 def check_MemoryRatio():
-    return psutil.virtual_memory().used / psutil.virtual_memory().total  # Ratio of used to total
+    return psutil.virtual_memory().used / psutil.virtual_memory().total * 100, 2
 
 def check_DiskUsage():
     return psutil.disk_usage('/').used / 1000000000  # bytes to Gigabytes
@@ -50,8 +51,8 @@ def check_MainFunc():
     print(CpuUse, "% CPU")
     MemUse = check_MemoryUsage()
     print(round(MemUse, 2), "GB of Memory in use")
-    MemPer = check_MemoryRatio()
-    print(round(MemPer * 100, 2), "% GB of Memory in use")
+    MemPer = (round(check_MemoryRatio() * 100, 2))
+    print(MemPer, "% GB of Memory in use")
     DiskUse = check_DiskUsage()
     print(round(DiskUse, 2), "GB of Disk in use")
     DiskPer = check_DiskRatio()
