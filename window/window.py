@@ -137,18 +137,13 @@ class TaskagotchiWindow(QWidget):
         fire_path = assets_path / "Fire.gif"
         shadow_path = assets_path / "DropShadow.png"
 
+        self.sun_image = QPixmap(str(sun_path))
         self.shadow_image = QPixmap(str(shadow_path))
         self.pet_image = QPixmap(str(image_path))
-        self.sun_image = QPixmap(str(sun_path))
 
         if self.pet_image.isNull():
             raise FileNotFoundError(
                 f"Could not load Taskagotchi image: {image_path}"
-            )
-
-        if self.sun_image.isNull():
-            raise FileNotFoundError(
-                f"Could not load sun image: {sun_path}"
             )
 
         # -------------------------------------------------
@@ -174,7 +169,7 @@ class TaskagotchiWindow(QWidget):
                 self.tree_images[(stage, condition)] = tree_image
 
         # -------------------------------------------------
-        # Load animated fire GIF
+        # Load animated fire gif
         # -------------------------------------------------
 
         self.fire_movie = QMovie(str(fire_path))
@@ -289,15 +284,15 @@ class TaskagotchiWindow(QWidget):
         )
 
         painter.drawPixmap(
-            self.tree_x,
-            self.tree_y,
-            tree_image,
-        )
-
-        painter.drawPixmap(
             self.pet_x,
             self.pet_y,
             self.pet_image,
+        )
+
+        painter.drawPixmap(
+            self.tree_x,
+            self.tree_y,
+            tree_image,
         )
 
         if self.plugged_in:
@@ -311,7 +306,7 @@ class TaskagotchiWindow(QWidget):
         if self.is_on_fire():
             fire_frame = self.fire_movie.currentPixmap()
 
-            if not fire_frame.isNull():
+            if not self.fire_frame.isNull():
                 painter.drawPixmap(
                     self.fire_x,
                     self.fire_y,
