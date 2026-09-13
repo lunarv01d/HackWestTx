@@ -194,18 +194,230 @@ class TaskagotchiWindow(QWidget):
 
         # Always draw the pet
         painter.drawPixmap(
-            0,
-            0,
+            -50,  #x
+            0,  #y
             self.pet_image
         )
 
         # Draw the sun only while plugged in
         if self.plugged_in:
             painter.drawPixmap(
-                120,
-                10,
+                45,    #x
+                10,     #y
                 self.sun_image
             )
+<<<<<<< Updated upstream
+=======
+
+        if (self.TreePercent > 95):
+            #painter(
+            #   0,
+            #   0,
+            #   self.Fire
+            #)
+            if (self.LeafPercent > 95):
+                print("LeafF")
+                #painter(
+                #   0,
+                #   0,
+                #   self.Fire
+                #)
+                #painter(
+                #   0,
+                #   0,
+                #   self.FullLeafFullTree
+                #)
+            elif (self.LeafPercent > 70):
+                print("LeafF")
+                #painter(
+                #   0,
+                #   0,
+                #   self.FullLeafFullTree
+                #)
+            elif (self.LeafPercent > 35):
+                print("LeafH")
+                #painter(
+                #   0,
+                #   0,
+                #   self.HalfLeafFullTree
+                #)
+            else:
+                print("LeafN")
+                #painter(
+                #   0,
+                #   0,
+                #   self.NoLeafFullTree
+                #)
+        elif (self.TreePercent > 80):
+            if (self.LeafPercent > 95):
+                print("LeafF")
+                #painter(
+                #   0,
+                #   0,
+                #   self.Fire
+                #)
+                #painter(
+                #   0,
+                #   0,
+                #   self.FullLeafFullTree
+                #)
+            elif (self.LeafPercent > 70):
+                print("LeafF")
+                #painter(
+                #   0,
+                #   0,
+                #   self.FullLeafFullTree
+                #)
+            elif (self.LeafPercent > 35):
+                print("LeafH")
+                #painter(
+                #   0,
+                #   0,
+                #   self.HalfLeafFullTree
+                #)
+            else:
+                print("LeafN")
+                #painter(
+                #   0,
+                #   0,
+                #   self.NoLeafFullTree
+                #)
+        elif (self.TreePercent > 60):
+            if (self.LeafPercent > 95):
+                print("LeafF")
+                #painter(
+                #   0,
+                #   0,
+                #   self.Fire
+                #)
+                #painter(
+                #   0,
+                #   0,
+                #   self.FullLeaf4Tree
+                #)
+            elif (self.LeafPercent > 70):
+                print("LeafF")
+                #painter(
+                #   0,
+                #   0,
+                #   self.FullLeaf4Tree
+                #)
+            elif (self.LeafPercent > 35):
+                print("LeafH")
+                #painter(
+                #   0,
+                #   0,
+                #   self.HalfLeaf4Tree
+                #)
+            else:
+                print("LeafN")
+                #painter(
+                #   0,
+                #   0,
+                #   self.NoLeaf4Tree
+                #)
+        elif (self.TreePercent > 40):
+            if (self.LeafPercent > 95):
+                print("LeafF")
+                #painter(
+                #   0,
+                #   0,
+                #   self.Fire
+                #)
+                #painter(
+                #   0,
+                #   0,
+                #   self.FullLeaf3Tree
+                #)
+            elif (self.LeafPercent > 70):
+                print("LeafF")
+                #painter(
+                #   0,
+                #   0,
+                #   self.FullLeaf3Tree
+                #)
+            elif (self.LeafPercent > 35):
+                print("LeafH")
+                #painter(
+                #   0,
+                #   0,
+                #   self.HalfLeaf3Tree
+                #)
+            else:
+                print("LeafN")
+                #painter(
+                #   0,
+                #   0,
+                #   self.NoLeaf3Tree
+                #)
+        elif (self.TreePercent > 20):
+            if (self.LeafPercent > 95):
+                print("LeafF")
+                #painter(
+                #   0,
+                #   0,
+                #   self.Fire
+                #)
+                #painter(
+                #   0,
+                #   0,
+                #   self.FullLeaf2Tree
+                #)
+            elif (self.LeafPercent > 70):
+                print("LeafF")
+                #painter(
+                #   0,
+                #   0,
+                #   self.FullLeaf2Tree
+                #)
+            elif (self.LeafPercent > 35):
+                print("LeafH")
+                #painter(
+                #   0,
+                #   0,
+                #   self.HalfLeaf2Tree
+                #)
+            else:
+                print("LeafN")
+                #painter(
+                #   0,
+                #   0,
+                #   self.NoLeaf2Tree
+                #)         
+        else:
+            if (self.LeafPercent > 95):
+                print("LeafF")
+                #painter(
+                #   0,
+                #   0,
+                #   self.Fire
+                #)
+                #painter(
+                #   0,
+                #   0,
+                #   self.FullLeaf1Tree
+                #)
+            elif (self.LeafPercent > 70):
+                print("LeafF")
+                #painter(
+                #   0,
+                #   0,
+                #   self.FullLeaf1Tree
+                #)
+            elif (self.LeafPercent > 35):
+                print("LeafH")
+                #painter(
+                #   0,
+                #   0,
+                #   self.HalfLeaf1Tree
+                #)
+            else:
+                print("LeafN")
+                #painter(
+                #   0,
+                #   0,
+                #   self.NoLeaf1Tree
+                #)   
             
 
     # -----------------------------------------------------
@@ -215,12 +427,44 @@ class TaskagotchiWindow(QWidget):
     cpuPercent = task.check_CPUusage(task.CPUCheckLength)
     print(cpuPercent, "% CPU")
 
+>>>>>>> Stashed changes
 
+    # -----------------------------------------------------
+    # Leaf Logic
+    # -----------------------------------------------------
+    
+    LeafPercent = task.check_MemoryRatio()
+
+    def LeafLogic(self, event):
+        painter = QPainter(self)
+
+        
 
 
     # -----------------------------------------------------
-    # Dragging
+    # Tree Logic
     # -----------------------------------------------------
+    
+    TreePercent = task.check_DiskRatio()
+        
+
+    # -----------------------------------------------------
+    # Add Text
+    # -----------------------------------------------------
+
+        cpu_percent = task.check_CPUusage(task.CPUCheckLength)
+        painter.setPen(Qt.GlobalColor.white)
+        painter.drawText(70, 75, f"CPU: {cpu_percent}%")
+        
+        
+        ram_percent = task.check_MemoryRatio()
+        painter.setPen(Qt.GlobalColor.white)
+        painter.drawText(70, 90, f"RAM: {ram_percent}%")
+
+        disk_percent = task.check_DiskRatio()
+        painter.setPen(Qt.GlobalColor.white)
+        painter.drawText(70, 105, f"Disk: {disk_percent}%")
+
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
