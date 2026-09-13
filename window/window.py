@@ -206,6 +206,17 @@ class TaskagotchiWindow(QWidget):
                 10,
                 self.sun_image
             )
+            
+
+    # -----------------------------------------------------
+    # Draw images
+    # -----------------------------------------------------
+
+    cpuPercent = task.check_CPUusage(task.CPUCheckLength)
+    print(cpuPercent, "% CPU")
+
+
+
 
     # -----------------------------------------------------
     # Dragging
