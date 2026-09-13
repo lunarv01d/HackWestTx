@@ -60,7 +60,7 @@ MODES = {
 
 
 # ---------------------------------------------------------
-# Dependency / environment checks
+# Dependency helpers
 # ---------------------------------------------------------
 
 def module_available(import_name):
@@ -87,6 +87,74 @@ def missing_dependencies(mode_name=None):
     return sorted(set(missing))
 
 
+def install_packages(packages):
+    """
+    Install packages into the same Python interpreter running Taskagotchi.
+    """
+
+    if not packages:
+        return
+
+    print("Taskagotchi is missing required packages:")
+
+    for package in packages:
+        print(f"  - {package}")
+
+    print("\nInstalling required packages...\n")
+
+    command = [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        *packages,
+    ]
+
+    try:
+        subprocess.check_call(
+            command,
+            cwd=str(ROOT),
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            "Taskagotchi could not install the required packages.\n\n"
+            "Try running this manually:\n\n"
+            + " ".join(command)
+        ) from exc
+
+    importlib.invalidate_caches()
+
+    print("\nDependencies installed successfully.\n")
+
+
+def ensure_dependencies(mode_name=None):
+    """
+    Install missing dependencies, then verify that Python can import them.
+    """
+
+    missing = missing_dependencies(mode_name)
+
+    if not missing:
+        return
+
+    install_packages(missing)
+
+    still_missing = missing_dependencies(mode_name)
+
+    if still_missing:
+        raise RuntimeError(
+            "The following packages were installed, but Python still "
+            "cannot import them:\n\n"
+            + ", ".join(still_missing)
+            + "\n\nPython executable:\n"
+            + sys.executable
+        )
+
+
+# ---------------------------------------------------------
+# Environment checks
+# ---------------------------------------------------------
+
 def missing_environment(mode_name):
     missing = []
 
@@ -95,17 +163,6 @@ def missing_environment(mode_name):
             missing.append(variable)
 
     return missing
-
-
-def dependency_error_text(packages):
-    package_list = " ".join(packages)
-
-    return (
-        "Taskagotchi is missing required Python packages:\n\n"
-        f"{', '.join(packages)}\n\n"
-        "Install them with:\n\n"
-        f"{sys.executable} -m pip install {package_list}"
-    )
 
 
 def environment_error_text(variables):
@@ -148,12 +205,11 @@ def launch_mode(mode_name):
             f"Expected: {mode['path']}"
         )
 
-    missing = missing_dependencies(mode_name)
-
-    if missing:
-        raise RuntimeError(
-            dependency_error_text(missing)
-        )
+    # IMPORTANT:
+    # Install the selected mode's dependencies BEFORE starting it.
+    # Previously main.py stopped here when Tray packages were missing,
+    # so trayicon.py never got a chance to install them.
+    ensure_dependencies(mode_name)
 
     missing_env = missing_environment(mode_name)
 
@@ -177,14 +233,8 @@ def launch_mode(mode_name):
 # ---------------------------------------------------------
 
 def run_gui():
-    gui_missing = missing_dependencies()
-
-    if "PySide6" in gui_missing:
-        print(
-            dependency_error_text(["PySide6"]),
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    # The launcher itself needs PySide6. Install it first if necessary.
+    ensure_dependencies()
 
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import (
@@ -271,10 +321,18 @@ def run_gui():
             self.setCentralWidget(central_widget)
 
         def start_mode(self, mode_name):
+            self.status_label.setText(
+                f"Preparing {mode_name}..."
+            )
+
+            QApplication.processEvents()
+
             try:
                 process = launch_mode(mode_name)
 
             except Exception as exc:
+                self.status_label.setText("Ready")
+
                 QMessageBox.critical(
                     self,
                     "Taskagotchi",
