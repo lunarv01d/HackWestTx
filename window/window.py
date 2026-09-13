@@ -271,19 +271,19 @@ class TaskagotchiWindow(QWidget):
         # Easy-to-adjust drawing positions
         # -------------------------------------------------
 
-        self.pet_x = -50
+        self.pet_x = 0
         self.pet_y = 0
 
-        self.tree_x = -50
+        self.tree_x = 0
         self.tree_y = 0
 
-        self.sun_x = 45
-        self.sun_y = 10
+        self.sun_x = 130
+        self.sun_y = 0
 
-        self.fire_x = -50
+        self.fire_x = 0
         self.fire_y = 0
 
-        self.shadow_x = -50
+        self.shadow_x = 0
         self.shadow_y = 0
 
         # Frameless and always on top
@@ -420,7 +420,7 @@ class TaskagotchiWindow(QWidget):
 
         screen = QApplication.primaryScreen().availableGeometry()
 
-        x = screen.right() - self.width() - 20
+        x = screen.right() - self.width() - 40
         y = screen.bottom() - self.height() - 20
 
         self.move(x, y)
@@ -606,32 +606,32 @@ class TaskagotchiWindow(QWidget):
         painter.setPen(Qt.GlobalColor.white)
 
         painter.drawText(
+            140,
             70,
-            75,
             f"CPU: {round(self.cpu_percent, 2)}%",
         )
 
         painter.drawText(
-            70,
-            90,
+            140,
+            85,
             f"RAM: {round(self.ram_used_percent, 2)}%",
         )
 
         painter.drawText(
-            70,
-            105,
+            140,
+            100,
             f"Disk: {round(self.disk_used_percent, 2)}%",
         )
 
         painter.drawText(
-            70,
-            120,
+            140,
+            115,
             f"Up: {round(self.net_upload, 2)} Mb/s",
         )
 
         painter.drawText(
-            70,
-            135,
+            140,
+            130,
             f"Down: {round(self.net_download, 2)} Mb/s",
         )
 
@@ -644,20 +644,20 @@ class TaskagotchiWindow(QWidget):
             scroll_status = "Recovering"
 
         painter.drawText(
-            70,
-            150,
+            140,
+            145,
             f"Tree: {round(self.tree_health, 1)}%",
         )
 
         painter.drawText(
-            70,
-            165,
+            140,
+            160,
             f"{scroll_status}: {doom_minutes:.1f} min",
         )
 
         painter.drawText(
-            70,
-            180,
+            140,
+            175,
             f"Scrolls/10s: {self.recent_scrolls}",
         )
 
@@ -716,7 +716,7 @@ def main():
     app.setApplicationName("Taskagotchi")
 
     window = TaskagotchiWindow()
-
+    window.setFixedSize(400,150)
     window.show()
     window.raise_()
 
