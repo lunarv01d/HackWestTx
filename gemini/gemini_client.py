@@ -1,47 +1,34 @@
-import os
+import json
+import ssl
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
-from google import genai
+import certifi
 
 
-DEFAULT_MODEL = os.getenv(
-    "GEMINI_MODEL",
-    "gemini-3.8-flash",
+TASKAGOTCHI_API_URL = (
+    "https://taskagotchi-api-284899401668.us-central1.run.app"
 )
 
-SYSTEM_INSTRUCTION = """
-You are the AI assistant inside Taskagotchi, a desktop app designed to help
-people notice and break out of doom-scrolling habits.
+# The actual Gemini model is selected by the Cloud Run backend.
+DEFAULT_MODEL = "Taskagotchi Cloud"
 
-Be concise, practical, friendly, and non-judgmental.
-
-When the user seems stuck in a scrolling loop:
-- suggest one small, concrete action they can take immediately;
-- prefer short breaks, intentional transitions, and realistic goals;
-- do not shame or lecture the user;
-- keep advice useful for someone sitting at a computer;
-- answer normal questions too when the user asks them.
-
-You are called Gemini inside the Taskagotchi interface.
-""".strip()
+# Use certifi's CA bundle explicitly. This avoids Python installations
+# on macOS that do not automatically use the system Keychain trust store.
+SSL_CONTEXT = ssl.create_default_context(
+    cafile=certifi.where()
+)
 
 
 class GeminiAssistant:
-    def __init__(self, model=DEFAULT_MODEL):
-        api_key = os.getenv("GEMINI_API_KEY")
-
-        if not api_key:
-            raise RuntimeError(
-                "GEMINI_API_KEY is not set.\n\n"
-                "Set it before starting Taskagotchi.\n\n"
-                'macOS/Linux:\n'
-                'export GEMINI_API_KEY="your-key-here"\n\n'
-                'Windows PowerShell:\n'
-                '$env:GEMINI_API_KEY="your-key-here"'
-            )
-
-        self.model = model
-        self.client = genai.Client(api_key=api_key)
+    def __init__(self, base_url=TASKAGOTCHI_API_URL):
+        self.base_url = base_url.rstrip("/")
         self.previous_interaction_id = None
+
+        if not self.base_url.startswith("https://"):
+            raise RuntimeError(
+                "Taskagotchi's Gemini backend must use HTTPS."
+            )
 
     def ask(self, prompt):
         prompt = prompt.strip()
@@ -49,25 +36,80 @@ class GeminiAssistant:
         if not prompt:
             return ""
 
-        request = {
-            "model": self.model,
-            "input": prompt,
-            "system_instruction": SYSTEM_INSTRUCTION,
+        payload = {
+            "prompt": prompt,
+            "previous_interaction_id": self.previous_interaction_id,
         }
 
-        if self.previous_interaction_id:
-            request["previous_interaction_id"] = (
-                self.previous_interaction_id
-            )
-
-        interaction = self.client.interactions.create(
-            **request
+        request = Request(
+            f"{self.base_url}/api/gemini",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": "Taskagotchi/1.0",
+            },
+            method="POST",
         )
 
-        self.previous_interaction_id = interaction.id
+        try:
+            with urlopen(
+                request,
+                timeout=45,
+                context=SSL_CONTEXT,
+            ) as response:
+                response_body = response.read().decode("utf-8")
+
+        except HTTPError as exc:
+            raw_error = exc.read().decode(
+                "utf-8",
+                errors="replace",
+            )
+
+            try:
+                error_data = json.loads(raw_error)
+                message = error_data.get(
+                    "error",
+                    raw_error,
+                )
+            except json.JSONDecodeError:
+                message = raw_error
+
+            raise RuntimeError(
+                f"Taskagotchi API error ({exc.code}): {message}"
+            ) from exc
+
+        except URLError as exc:
+            raise RuntimeError(
+                "Could not reach the Taskagotchi API.\n\n"
+                f"{exc.reason}"
+            ) from exc
+
+        except TimeoutError as exc:
+            raise RuntimeError(
+                "The Taskagotchi API request timed out."
+            ) from exc
+
+        try:
+            data = json.loads(response_body)
+
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                "Taskagotchi API returned an invalid response."
+            ) from exc
+
+        interaction_id = data.get("interaction_id")
+
+        if interaction_id:
+            self.previous_interaction_id = interaction_id
+
+        text = data.get("text", "")
+
+        if not isinstance(text, str):
+            text = str(text)
 
         return (
-            interaction.output_text
+            text
             or "Gemini returned an empty response."
         )
 
