@@ -77,9 +77,7 @@ def install_dependencies():
         print(
             "\nCould not install Taskagotchi tray dependencies."
         )
-        print(
-            "Install them manually with:"
-        )
+        print("Install them manually with:")
         print(
             f"{sys.executable} -m pip install "
             + " ".join(missing_packages)
@@ -94,6 +92,44 @@ install_dependencies()
 import psutil
 import pystray
 from PIL import Image
+
+
+# ---------------------------------------------------------
+# Tray icon image
+# ---------------------------------------------------------
+
+def load_tray_icon():
+    """
+    Load and normalize the Taskagotchi tray image.
+
+    The source TrayIcon.png is intentionally tiny pixel art. That works
+    on macOS, but pystray's Windows backend serializes the PIL image to
+    ICO before passing it to Win32 LoadImage.
+
+    Pillow cannot create a valid ICO from an 8x8 image, so Windows gets
+    an invalid temporary icon and LoadImage fails with WinError 0.
+
+    Upscaling to 64x64 with nearest-neighbor preserves the pixel-art look
+    and gives Pillow enough size to generate valid Windows ICO frames.
+    """
+
+    if not ICON_PATH.exists():
+        raise FileNotFoundError(
+            f"Could not find tray icon: {ICON_PATH}"
+        )
+
+    with Image.open(ICON_PATH) as source:
+        image = source.convert("RGBA")
+
+    # 64x64 is also the size used by pystray's own usage example.
+    # NEAREST keeps an 8-bit / pixel-art icon crisp instead of blurry.
+    if image.size != (64, 64):
+        image = image.resize(
+            (64, 64),
+            Image.Resampling.NEAREST,
+        )
+
+    return image
 
 
 # ---------------------------------------------------------
@@ -306,12 +342,7 @@ def quit_taskagotchi(icon, item=None):
 # ---------------------------------------------------------
 
 def main():
-    if not ICON_PATH.exists():
-        raise FileNotFoundError(
-            f"Could not find tray icon: {ICON_PATH}"
-        )
-
-    icon_image = Image.open(ICON_PATH)
+    icon_image = load_tray_icon()
 
     menu = pystray.Menu(
         pystray.MenuItem(
