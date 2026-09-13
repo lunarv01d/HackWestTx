@@ -137,9 +137,9 @@ class TaskagotchiWindow(QWidget):
         fire_path = assets_path / "Fire.gif"
         shadow_path = assets_path / "DropShadow.png"
 
-        self.sun_image = QPixmap(str(sun_path))
         self.shadow_image = QPixmap(str(shadow_path))
         self.pet_image = QPixmap(str(image_path))
+        self.sun_image = QPixmap(str(sun_path))
 
         if self.pet_image.isNull():
             raise FileNotFoundError(
@@ -149,6 +149,11 @@ class TaskagotchiWindow(QWidget):
         if self.sun_image.isNull():
             raise FileNotFoundError(
                 f"Could not load sun image: {sun_path}"
+            )
+
+        if self.shadow_image.isNull():
+            raise FileNotFoundError(
+                f"Could not load shadow image: {shadow_path}"
             )
 
         # -------------------------------------------------
@@ -174,7 +179,7 @@ class TaskagotchiWindow(QWidget):
                 self.tree_images[(stage, condition)] = tree_image
 
         # -------------------------------------------------
-        # Load animated fire gif
+        # Load animated fire GIF
         # -------------------------------------------------
 
         self.fire_movie = QMovie(str(fire_path))
@@ -328,23 +333,21 @@ class TaskagotchiWindow(QWidget):
             self.shadow_image,
         )
 
-        painter.drawPixmap(
-            self.tree_x,
-            self.tree_y,
-            tree_image,
-        )
+        # Draw one of the five tree stages unless disk is critical
+        if not self.is_on_fire():
+            tree_image = self.get_tree_image()
+
+            painter.drawPixmap(
+                self.tree_x,
+                self.tree_y,
+                tree_image,
+            )
 
         # Draw pot
         painter.drawPixmap(
             self.pet_x,
             self.pet_y,
             self.pet_image,
-        )
-
-        painter.drawPixmap(
-            self.tree_x,
-            self.tree_y,
-            tree_image,
         )
 
         # Draw sun when plugged in
@@ -359,7 +362,7 @@ class TaskagotchiWindow(QWidget):
         if self.is_on_fire():
             fire_frame = self.fire_movie.currentPixmap()
 
-            if not self.fire_frame.isNull():
+            if not fire_frame.isNull():
                 painter.drawPixmap(
                     self.fire_x,
                     self.fire_y,
