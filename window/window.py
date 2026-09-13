@@ -111,6 +111,9 @@ class TaskagotchiWindow(QWidget):
         self.fire_x = -50
         self.fire_y = 0
 
+        self.shadow_x = -50
+        self.shadow_y = 0
+
         # Frameless and always on top
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
@@ -130,9 +133,11 @@ class TaskagotchiWindow(QWidget):
         assets_path = Path(__file__).resolve().parent / "assets"
 
         image_path = assets_path / "Pot.png"
-        sun_path = assets_path / "Sun.png"
+        sun_path = assets_path / "Sun.gif"
         fire_path = assets_path / "Fire.gif"
+        shadow_path = assets_path / "DropShadow.png"
 
+        self.shadow_image = QPixmap(str(shadow_path))
         self.pet_image = QPixmap(str(image_path))
         self.sun_image = QPixmap(str(sun_path))
 
@@ -278,6 +283,12 @@ class TaskagotchiWindow(QWidget):
         tree_image = self.get_tree_image()
 
         painter.drawPixmap(
+            self.shadow_x,
+            self.shadow_y,
+            self.shadow_image,
+        )
+
+        painter.drawPixmap(
             self.tree_x,
             self.tree_y,
             tree_image,
@@ -295,6 +306,7 @@ class TaskagotchiWindow(QWidget):
                 self.sun_y,
                 self.sun_image,
             )
+
 
         if self.is_on_fire():
             fire_frame = self.fire_movie.currentPixmap()
