@@ -33,7 +33,7 @@ def check_DiskUsage():
     return psutil.disk_usage('/').used / 1000000000  # bytes to Gigabytes
 
 def check_DiskRatio():
-    return psutil.disk_usage().percent  # Ratio of used to total
+    return psutil.disk_usage('/').percent  # Ratio of used to total
 
 def check_BatteryPercent():
     return psutil.sensors_battery().percent
