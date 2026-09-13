@@ -146,6 +146,11 @@ class TaskagotchiWindow(QWidget):
                 f"Could not load Taskagotchi image: {image_path}"
             )
 
+        if self.sun_image.isNull():
+            raise FileNotFoundError(
+                f"Could not load sun image: {sun_path}"
+            )
+
         # -------------------------------------------------
         # Load tree images
         # -------------------------------------------------
@@ -188,9 +193,18 @@ class TaskagotchiWindow(QWidget):
 
         self.plugged_in = False
         self.cpu_percent = 0
+
+        # RAM
         self.ram_used_percent = 0
         self.LeafPercent = 0
+
+        # Disk
+        self.disk_used_percent = 0
         self.TreePercent = 0
+
+        # Network
+        self.net_upload = 0
+        self.net_download = 0
 
         self.system_timer = QTimer(self)
         self.system_timer.timeout.connect(
@@ -204,7 +218,11 @@ class TaskagotchiWindow(QWidget):
         # Window setup
         # -------------------------------------------------
 
-        self.setFixedSize(self.pet_image.size())
+        self.setFixedSize(
+            self.pet_image.width() + 120,
+            self.pet_image.height() + 60,
+        )
+
         self.drag_offset = None
 
         screen = QApplication.primaryScreen().availableGeometry()
@@ -228,10 +246,16 @@ class TaskagotchiWindow(QWidget):
         # Actual RAM usage for text display
         self.ram_used_percent = task.check_MemoryRatio()
 
-        # Available RAM for leaf health
+        # Available RAM controls leaf condition
         self.LeafPercent = 100 - self.ram_used_percent
 
-        self.TreePercent = task.check_DiskRatio()
+        # Actual disk usage for text display
+        self.disk_used_percent = task.check_DiskRatio()
+
+        # Free disk percentage controls tree stage
+        self.TreePercent = 100 - self.disk_used_percent
+
+        self.net_upload, self.net_download = task.check_netUsage()
 
         self.update()
 
@@ -240,18 +264,35 @@ class TaskagotchiWindow(QWidget):
     # -----------------------------------------------------
 
     def get_tree_stage(self):
-        if self.TreePercent > 80:
+        """
+        Free disk space controls tree fullness.
+
+        81-100% free -> Stage 5
+        61-80% free  -> Stage 4
+        41-60% free  -> Stage 3
+        21-40% free  -> Stage 2
+        6-20% free   -> Stage 1
+        0-5% free    -> Fire, no tree
+        """
+
+        free_disk = self.TreePercent
+
+        if free_disk > 80:
             return 5
-        elif self.TreePercent > 60:
+        elif free_disk > 60:
             return 4
-        elif self.TreePercent > 40:
+        elif free_disk > 40:
             return 3
-        elif self.TreePercent > 20:
+        elif free_disk > 20:
             return 2
         else:
             return 1
 
     def get_leaf_condition(self):
+        """
+        Available RAM controls leaf condition.
+        """
+
         if self.LeafPercent > 70:
             return "Good"
         elif self.LeafPercent > 35:
@@ -266,7 +307,12 @@ class TaskagotchiWindow(QWidget):
         return self.tree_images[(stage, condition)]
 
     def is_on_fire(self):
-        return self.TreePercent > 95
+        """
+        5% or less free disk space means:
+        hide the tree and show fire instead.
+        """
+
+        return self.TreePercent <= 5
 
     # -----------------------------------------------------
     # Draw images and text
@@ -275,14 +321,20 @@ class TaskagotchiWindow(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
 
-        tree_image = self.get_tree_image()
-
+        # Draw shadow
         painter.drawPixmap(
             self.shadow_x,
             self.shadow_y,
             self.shadow_image,
         )
 
+        painter.drawPixmap(
+            self.tree_x,
+            self.tree_y,
+            tree_image,
+        )
+
+        # Draw pot
         painter.drawPixmap(
             self.pet_x,
             self.pet_y,
@@ -295,6 +347,7 @@ class TaskagotchiWindow(QWidget):
             tree_image,
         )
 
+        # Draw sun when plugged in
         if self.plugged_in:
             painter.drawPixmap(
                 self.sun_x,
@@ -302,7 +355,7 @@ class TaskagotchiWindow(QWidget):
                 self.sun_image,
             )
 
-
+        # Draw fire instead of a tree when <= 5% disk is free
         if self.is_on_fire():
             fire_frame = self.fire_movie.currentPixmap()
 
@@ -334,7 +387,19 @@ class TaskagotchiWindow(QWidget):
         painter.drawText(
             70,
             105,
-            f"Disk: {round(self.TreePercent, 2)}%",
+            f"Disk: {round(self.disk_used_percent, 2)}%",
+        )
+
+        painter.drawText(
+            70,
+            120,
+            f"Up: {round(self.net_upload, 2)} Mb/s",
+        )
+
+        painter.drawText(
+            70,
+            135,
+            f"Down: {round(self.net_download, 2)} Mb/s",
         )
 
     # -----------------------------------------------------
