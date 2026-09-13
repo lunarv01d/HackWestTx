@@ -226,7 +226,10 @@ class TaskagotchiWindow(QWidget):
     def update_system_state(self):
         self.plugged_in = task.check_PluggedIn()
         self.cpu_percent = task.check_CPUusage(task.CPUCheckLength)
-        self.LeafPercent = 100 - task.check_MemoryRatio()
+        if sys.platform == ('darwin'):
+            self.LeafPercent = 100 - task.check_MemoryRatio()
+        elif sys.platform == ('win32'):
+            self.LeafPercent = task.check_MemoryRatio()
         self.TreePercent = task.check_DiskRatio()
 
         # Repaint the window with the new values.

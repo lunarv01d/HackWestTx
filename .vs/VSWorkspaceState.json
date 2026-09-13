@@ -4,7 +4,8 @@
     "\\pet",
     "\\Taskagotchi",
     "\\Taskagotchi\\Taskagotchi",
-    "\\window"
+    "\\window",
+    "\\window\\assets"
   ],
   "SelectedNode": "\\window\\window.py",
   "PreviewInSolutionExplorer": false
